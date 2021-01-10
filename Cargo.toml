@@ -1,0 +1,14 @@
+[package]
+name = "druid-rustdoc"
+version = "0.1.0"
+authors = ["Manmeet <manmeetmann2003@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+druid = { path = "../druid/druid", features = ["im", "image"], branch = "markdown-preview" }
+pulldown-cmark = "0.8.0"
+rustdoc-types = { path = "rustdoc-types" }
+syntect = "4.5.0"
+lazy_static = "*"
