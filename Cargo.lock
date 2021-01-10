@@ -306,6 +306,7 @@ checksum = "212d0f5754cb6769937f4501cc0e67f4f4483c8d2c3e1e922ee9edbe4ab4c7c0"
 [[package]]
 name = "druid"
 version = "0.7.0"
+source = "git+https://github.com/Maan2003/druid?branch=rich-text-builder#9b29febf817ba7c0eca685585a9135cc68f65797"
 dependencies = [
  "console_log",
  "druid-derive",
@@ -326,6 +327,7 @@ dependencies = [
 [[package]]
 name = "druid-derive"
 version = "0.4.0"
+source = "git+https://github.com/Maan2003/druid?branch=rich-text-builder#9b29febf817ba7c0eca685585a9135cc68f65797"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -346,6 +348,7 @@ dependencies = [
 [[package]]
 name = "druid-shell"
 version = "0.7.0"
+source = "git+https://github.com/Maan2003/druid?branch=rich-text-builder#9b29febf817ba7c0eca685585a9135cc68f65797"
 dependencies = [
  "anyhow",
  "bitflags",

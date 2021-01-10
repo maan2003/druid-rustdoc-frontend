@@ -14,7 +14,7 @@ mod view;
 mod widgets;
 
 fn main() {
-    let data = fs::read_to_string(format!("target/doc/{}.json", args().nth(1).unwrap())).unwrap();
+    let data = fs::read_to_string(format!("{}.json", args().nth(1).unwrap())).unwrap();
     let krate = rustdoc_types::parse(&data);
     drop(data);
     let data = AppData {
