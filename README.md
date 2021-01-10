@@ -1,4 +1,5 @@
-to run ```shell
+to run 
+```shell
 cargo run -- piet
 ```
 
