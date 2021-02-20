@@ -23,9 +23,9 @@ fn main() {
         stack: Vector::new(),
     };
 
-    let window = WindowDesc::new(view::ui_builder).show_titlebar(false);
+    let window = WindowDesc::new(view::ui_builder()).show_titlebar(false);
     AppLauncher::with_window(window)
-        .use_simple_logger()
+        .use_env_tracing()
         .delegate(Delegate)
         .configure_env(|env, _| configure_env(env))
         .launch(data)
