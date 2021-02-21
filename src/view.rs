@@ -5,10 +5,7 @@ use druid::{
     widget::{CrossAxisAlignment, Flex, Label, LineBreaking, RawLabel, Scroll, ViewSwitcher},
     Color, FontFamily, FontWeight, Key, Target, Widget, WidgetExt,
 };
-use rustdoc_types::{
-    GenericBound, GenericParamDef, GenericParamDefKind, Generics, Impl, Item, ItemEnum, ItemKind,
-    ItemSummary, Method, Module, Struct, TraitBoundModifier, Type,
-};
+use rustdoc_types::{GenericBound, GenericParamDef, GenericParamDefKind, Generics, Impl, Item, ItemEnum, ItemKind, ItemSummary, Method, Module, Struct, TraitBoundModifier, Type, Union};
 
 use crate::{
     format::{format_fn, format_generics_def, format_ty},
@@ -20,14 +17,16 @@ use crate::{
 };
 
 pub fn ui_builder() -> impl Widget<AppData> {
-    #[cfg(target_os = "windows")] {
-    Flex::column()
-        .with_child(title_bar::title_bar().lens(Unit))
-        .with_flex_child(item().padding(10.), 1.)
-        .lens(IdLens)
+    #[cfg(target_os = "windows")]
+    {
+        Flex::column()
+            .with_child(title_bar::title_bar().lens(Unit))
+            .with_flex_child(item().padding(10.), 1.)
+            .lens(IdLens)
     }
 
-    #[cfg(not(target_os = "windows"))] {
+    #[cfg(not(target_os = "windows"))]
+    {
         item().padding(10.).lens(IdLens)
     }
 }
@@ -72,10 +71,10 @@ fn item() -> impl Widget<(Item, Option<ItemSummary>)> {
 }
 
 fn struct_view(item: &Item, summary: Option<&ItemSummary>) -> impl Widget<()> {
-    fn struct_(item: &Item) -> &Struct {
+    fn struct_(item: &Item) -> &Union {
         match &item.inner {
-            ItemEnum::StructItem(s) => s,
-            _ => unreachable!(),
+            ItemEnum::UnionItem(s) => s,
+            _ => panic!("{:?}", item.inner),
         }
     }
 
@@ -127,12 +126,14 @@ fn struct_view(item: &Item, summary: Option<&ItemSummary>) -> impl Widget<()> {
 
     let mut body = Flex::column().cross_axis_alignment(CrossAxisAlignment::Start);
 
-    let docs = markdown_to_text(&item.docs);
-    let docs = RawLabel::new()
-        .with_line_break_mode(LineBreaking::WordWrap)
-        .lens(Constant(docs));
-    body.add_child(docs);
-    body.add_default_spacer();
+    if let Some(docs) = &item.docs {
+        let docs = markdown_to_text(docs);
+        let docs = RawLabel::new()
+            .with_line_break_mode(LineBreaking::WordWrap)
+            .lens(Constant(docs));
+        body.add_child(docs);
+        body.add_default_spacer();
+    }
 
     // fields
     if !st.fields.is_empty() {
@@ -159,11 +160,11 @@ fn struct_view(item: &Item, summary: Option<&ItemSummary>) -> impl Widget<()> {
                             .padding((5., 0., 0., 0.)),
                     );
 
-                    if !f.docs.is_empty() {
-                        let docs = markdown_to_text(&f.docs);
+                    if let Some(docs) = &f.docs {
+                        let docs = markdown_to_text(docs);
                         let docs = RawLabel::new()
                             .with_line_break_mode(LineBreaking::WordWrap)
-                            .padding((5., 0., 0., 0.))
+                            .padding((10., 0., 0., 0.))
                             .lens(Constant(docs));
                         fields.add_child(docs);
                         fields.add_default_spacer();
@@ -186,7 +187,7 @@ fn struct_view(item: &Item, summary: Option<&ItemSummary>) -> impl Widget<()> {
                 Blanket,
             }
             let classify = |a: &Impl| {
-                if a.trait_.is_none() {
+                if dbg!(&a.trait_).is_none() {
                     ImplType::Simple
                 } else if a.synthetic {
                     ImplType::Auto
@@ -219,8 +220,7 @@ fn struct_view(item: &Item, summary: Option<&ItemSummary>) -> impl Widget<()> {
                     impls.add_default_spacer();
                     start = kind;
                 }
-                impls.add_child(impl_block(&item).padding((5.0, 0.0, 0.0, 0.0)));
-                impls.add_default_spacer();
+                impls.add_child(impl_block(&item).padding((0., 0.0, 0.0, 0.0)));
             }
             impls.boxed()
         });
@@ -269,7 +269,7 @@ fn impl_block(item: &Item) -> impl Widget<()> {
         for (item, summary) in items {
             let mut r = RichTextBuilder::new();
             match &item.inner {
-                ItemEnum::MethodItem(m) => {
+                ItemEnum::FunctionItem(m) => {
                     format_fn(&item, &mut r);
                 }
                 ItemEnum::AssocConstItem { type_, default } => {
@@ -294,8 +294,7 @@ fn impl_block(item: &Item) -> impl Widget<()> {
                     r.push(" = ");
                     format_ty(&t.type_, &mut r);
                 }
-                _ => unreachable!(),
-                // _ => format!("Unknown {:?}", item.kind),
+                _ => {eprintln!("Unknown thing {:?}", item)},
             };
 
             flex.add_child(
@@ -303,8 +302,8 @@ fn impl_block(item: &Item) -> impl Widget<()> {
                     .with_font(theme::CODE_FONT)
                     .lens(Constant(r.build())),
             );
-            if !item.docs.is_empty() {
-                let docs = markdown_to_text(&item.docs);
+            if let Some(docs) = &item.docs {
+                let docs = markdown_to_text(&docs);
                 let docs = RawLabel::new()
                     .with_line_break_mode(LineBreaking::WordWrap)
                     .padding((20., 0., 0., 0.))
@@ -313,14 +312,14 @@ fn impl_block(item: &Item) -> impl Widget<()> {
                 flex.add_child(docs);
                 flex.add_spacer(10.);
             }
-            flex.add_default_spacer();
+            flex.add_spacer(20.);
         }
         flex.boxed()
     });
     Flex::column()
         .cross_axis_alignment(CrossAxisAlignment::Start)
         .with_child(name)
-        .with_default_spacer()
+        .with_spacer(5.)
         .with_child(items.padding((10., 0., 0., 0.)))
 }
 
@@ -338,9 +337,11 @@ fn module(item: &Item, summary: Option<&ItemSummary>) -> impl Widget<()> {
     let mut name = RichText::new(format!("{} {}", type_, item.name.as_ref().unwrap()).into());
     name.add_attribute((type_.len()).., Attribute::TextColor(color.into()));
     name.add_attribute(0.., Attribute::Weight(FontWeight::MEDIUM));
-    let name = RawLabel::new().with_text_size(24.0).lens(Constant(name));
-
-    let docs = markdown_to_text(&item.docs);
+    let name = RawLabel::new()
+        .with_font(theme::CODE_FONT)
+        .with_text_size(24.0)
+        .lens(Constant(name));
+    let docs = markdown_to_text(&item.docs.as_deref().unwrap_or(""));
     let docs = RawLabel::new()
         .with_line_break_mode(LineBreaking::WordWrap)
         .lens(Constant(docs));
@@ -400,17 +401,25 @@ fn module(item: &Item, summary: Option<&ItemSummary>) -> impl Widget<()> {
             let color = item_kind_str(item).1;
             let id = item.id.clone();
             let mut name = Label::new(item.name.as_ref().unwrap_or(&"_".into()).clone())
+                .with_font(theme::CODE_FONT)
                 .with_text_color(color)
                 .on_click(move |ctx, _data, _env| {
                     ctx.submit_command(GOTO_ITEM.with((id.clone())).to(Target::Global));
                 })
+                .fix_height(22.0)
                 .boxed();
 
-            let docs = item.docs.split("\n\n").next().unwrap();
+            let docs = item
+                .docs
+                .as_deref()
+                .map(|x| x.split("\n\n").next().unwrap())
+                .unwrap_or("");
             let docs = markdown_to_text(docs);
             let docs = RawLabel::new()
                 .with_line_break_mode(LineBreaking::Clip)
-                .padding((10.0, 0.0))
+                .with_text_size(16.0)
+                .padding((10.0, 2.))
+                .fix_height(22.0)
                 .lens(Constant(docs));
             sum.add_child(docs);
             sum.add_spacer(2.0);
