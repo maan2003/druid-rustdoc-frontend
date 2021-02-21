@@ -244,6 +244,40 @@ pub enum ItemEnum {
     },
 }
 
+impl ItemEnum {
+    pub fn as_mod(&self) -> Option<&Module> {
+	match self {
+	    Self::ModuleItem(m) => Some(m),
+            _ => None,
+	}
+    }
+
+    pub fn as_impl(&self) -> Option<&Impl> {
+	match self {
+	    Self::ImplItem(i) => Some(i),
+            _ => None,
+	}
+    }
+    pub fn as_struct(&self) -> Option<&Struct> {
+	match self {
+	    Self::StructItem(i) => Some(i),
+            _ => None,
+	}
+    }
+    pub fn as_struct_field(&self) -> Option<&Type> {
+	match self {
+	    Self::StructFieldItem(i) => Some(i),
+            _ => None,
+	}
+    }
+    pub fn as_fn(&self) -> Option<&Function> {
+	match self {
+	    Self::FunctionItem(i) => Some(i),
+            _ => None,
+	}
+    }
+}
+
 #[derive(Clone, Debug, Data, Lens, Serialize, Deserialize, PartialEq)]
 pub struct Module {
     pub is_crate: bool,

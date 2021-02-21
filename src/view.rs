@@ -5,7 +5,10 @@ use druid::{
     widget::{CrossAxisAlignment, Flex, Label, LineBreaking, RawLabel, Scroll, ViewSwitcher},
     Color, FontFamily, FontWeight, Key, Target, Widget, WidgetExt,
 };
-use rustdoc_types::{GenericBound, GenericParamDef, GenericParamDefKind, Generics, Impl, Item, ItemEnum, ItemKind, ItemSummary, Method, Module, Struct, TraitBoundModifier, Type, Union};
+use rustdoc_types::{
+    Function, GenericBound, GenericParamDef, GenericParamDefKind, Generics, Impl, Item, ItemEnum,
+    ItemKind, ItemSummary, Method, Module, Struct, TraitBoundModifier, Type, Union,
+};
 
 use crate::{
     format::{format_fn, format_generics_def, format_ty},
@@ -15,7 +18,8 @@ use crate::{
     widgets::{ItemsWidget, Seperator},
     AppData, GOTO_ITEM,
 };
-
+mod mod_;
+mod r#fn;
 pub fn ui_builder() -> impl Widget<AppData> {
     #[cfg(target_os = "windows")]
     {
@@ -37,8 +41,9 @@ fn item() -> impl Widget<(Item, Option<ItemSummary>)> {
         |_, (item, summary), _env| {
             let time = std::time::Instant::now();
             let x = match item.kind {
-                ItemKind::Module => module(item, summary.as_ref()).lens(Unit).boxed(),
+                ItemKind::Module => mod_::module(item, summary.as_ref()).lens(Unit).boxed(),
                 ItemKind::Struct => struct_view(item, summary.as_ref()).lens(Unit).boxed(),
+                ItemKind::Function => function(item).lens(Unit).boxed(),
                 _ => panic!("unknown {:?}", item.kind),
                 // ItemKind::ExternCrate => {}
                 // ItemKind::Import => {}
@@ -294,7 +299,9 @@ fn impl_block(item: &Item) -> impl Widget<()> {
                     r.push(" = ");
                     format_ty(&t.type_, &mut r);
                 }
-                _ => {eprintln!("Unknown thing {:?}", item)},
+                _ => {
+                    eprintln!("Unknown thing {:?}", item)
+                }
             };
 
             flex.add_child(
@@ -323,113 +330,32 @@ fn impl_block(item: &Item) -> impl Widget<()> {
         .with_child(items.padding((10., 0., 0., 0.)))
 }
 
-// fn function(item: &Item) -> impl
-
-fn module(item: &Item, summary: Option<&ItemSummary>) -> impl Widget<()> {
-    fn module(item: &Item) -> &Module {
+fn function(item: &Item) -> impl Widget<()> {
+    fn func(item: &Item) -> &Function {
         match &item.inner {
-            ItemEnum::ModuleItem(m) => m,
+            ItemEnum::FunctionItem(f) => f,
             _ => unreachable!(),
         }
     }
     let (type_, color) = item_kind_str(item);
 
-    let mut name = RichText::new(format!("{} {}", type_, item.name.as_ref().unwrap()).into());
-    name.add_attribute((type_.len()).., Attribute::TextColor(color.into()));
-    name.add_attribute(0.., Attribute::Weight(FontWeight::MEDIUM));
+    let mut name = RichTextBuilder::new();
+    name.push("fn ");
+    name.push(item.name.as_ref().unwrap())
+        .text_color(color)
+        .weight(FontWeight::MEDIUM);
     let name = RawLabel::new()
         .with_font(theme::CODE_FONT)
         .with_text_size(24.0)
-        .lens(Constant(name));
+        .lens(Constant(name.build()));
+
     let docs = markdown_to_text(&item.docs.as_deref().unwrap_or(""));
     let docs = RawLabel::new()
         .with_line_break_mode(LineBreaking::WordWrap)
         .lens(Constant(docs));
-    let m = module(item);
 
-    let items = ItemsWidget::new(m.items.iter().cloned().collect(), |mut items, _env| {
-        let mut prev_kind = ItemKind::AssocConst;
-        let mut current_names = Flex::column().cross_axis_alignment(CrossAxisAlignment::Start);
-        let mut all_names = Flex::column().cross_axis_alignment(CrossAxisAlignment::Start);
-        let mut sum = Flex::column().cross_axis_alignment(CrossAxisAlignment::Start);
-        items.sort_by(|(a, _), (b, _)| {
-            (a.kind as u8).cmp(&(b.kind as u8)).then_with(|| {
-                a.name
-                    .as_ref()
-                    .unwrap_or(&"_".into())
-                    .cmp(b.name.as_ref().unwrap_or(&"_".into()))
-            })
-        });
-        let mut is_first = true;
-        let mut heading = if items.is_empty() {
-            String::new()
-        } else {
-            format!("{}s", item_kind_str(&items[0].0).0)
-        };
-        for (item, summary) in &items {
-            if item.kind != prev_kind {
-                if !is_first {
-                    let heading =
-                        std::mem::replace(&mut heading, format!("{}s", item_kind_str(&item).0));
-                    let heading = Label::new(heading).with_text_size(22.4);
-                    let items = Flex::row()
-                        .cross_axis_alignment(CrossAxisAlignment::Start)
-                        .with_child(current_names)
-                        .with_flex_child(sum, 1.0);
-
-                    let this_group = Flex::column()
-                        .cross_axis_alignment(CrossAxisAlignment::Start)
-                        .with_default_spacer()
-                        .with_child(heading)
-                        .with_spacer(3.0)
-                        .with_child(
-                            Seperator::new()
-                                .with_color(Color::Rgba32(0x5c6773ff))
-                                .with_size(1.0),
-                        )
-                        .with_default_spacer()
-                        .with_child(items)
-                        .boxed();
-                    current_names = Flex::column().cross_axis_alignment(CrossAxisAlignment::Start);
-                    sum = Flex::column().cross_axis_alignment(CrossAxisAlignment::Start);
-                    all_names.add_child(this_group);
-                } else {
-                    is_first = false;
-                }
-                prev_kind = item.kind;
-            }
-            let color = item_kind_str(item).1;
-            let id = item.id.clone();
-            let mut name = Label::new(item.name.as_ref().unwrap_or(&"_".into()).clone())
-                .with_font(theme::CODE_FONT)
-                .with_text_color(color)
-                .on_click(move |ctx, _data, _env| {
-                    ctx.submit_command(GOTO_ITEM.with((id.clone())).to(Target::Global));
-                })
-                .fix_height(22.0)
-                .boxed();
-
-            let docs = item
-                .docs
-                .as_deref()
-                .map(|x| x.split("\n\n").next().unwrap())
-                .unwrap_or("");
-            let docs = markdown_to_text(docs);
-            let docs = RawLabel::new()
-                .with_line_break_mode(LineBreaking::Clip)
-                .with_text_size(16.0)
-                .padding((10.0, 2.))
-                .fix_height(22.0)
-                .lens(Constant(docs));
-            sum.add_child(docs);
-            sum.add_spacer(2.0);
-
-            current_names.add_child(name);
-            current_names.add_spacer(2.0);
-        }
-        all_names.boxed()
-    });
     Flex::column()
+        .cross_axis_alignment(CrossAxisAlignment::Start)
         .with_child(name)
         .with_default_spacer()
         .with_child(
@@ -439,25 +365,16 @@ fn module(item: &Item, summary: Option<&ItemSummary>) -> impl Widget<()> {
                 .with_stroke_style(StrokeStyle::new().dash(vec![2.0], 0.0)),
         )
         .with_default_spacer()
-        .with_flex_child(
-            Scroll::new(
-                Flex::column()
-                    .cross_axis_alignment(CrossAxisAlignment::Start)
-                    .with_child(docs)
-                    .with_child(items.expand_width()),
-            )
-            .vertical(),
-            1.0,
-        )
-        .cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_flex_child(Scroll::new(docs).vertical(), 1.)
 }
+
 
 fn item_kind_str(i: &Item) -> (&'static str, Key<Color>) {
     match &i.inner {
-        ItemEnum::ModuleItem(m) if m.is_crate => ("Crate", theme::MOD_COLOR),
-        ItemEnum::ModuleItem(_) => ("Module", theme::MOD_COLOR),
+        ItemEnum::ModuleItem(m) if m.is_crate => ("crate", theme::MOD_COLOR),
+        ItemEnum::ModuleItem(_) => ("mod", theme::MOD_COLOR),
         // ItemEnum::ImportItem(_) => {}
-        ItemEnum::StructItem(_) => ("Struct", theme::STRUCT_COLOR),
+        ItemEnum::StructItem(_) | ItemEnum::UnionItem(_)=> ("Struct", theme::STRUCT_COLOR),
         // ItemEnum::StructFieldItem(_) => {}
         ItemEnum::EnumItem(_) => ("Enum", theme::ENUM_COLOR),
         ItemEnum::FunctionItem(_) => ("Function", theme::FUNCTION_COLOR),
@@ -469,7 +386,7 @@ fn item_kind_str(i: &Item) -> (&'static str, Key<Color>) {
         // ItemEnum::ImplItem(_) => {}
         // ItemEnum::TypedefItem(_) => {}
         // ItemEnum::OpaqueTyItem(_) => {}
-        ItemEnum::ConstantItem(_) => ("Constant", theme::FUNCTION_COLOR),
+        ItemEnum::ConstantItem(_) => ("const", theme::FUNCTION_COLOR),
         // ItemEnum::StaticItem(_) => {}
         // ItemEnum::ForeignTypeItem => {}
         // ItemEnum::MacroItem(_) => {}
