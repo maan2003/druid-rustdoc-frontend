@@ -250,6 +250,47 @@ pub fn format_fn(f: &Item, r: &mut RichTextBuilder) {
         format_ty(ty, r);
     }
 }
+pub fn format_fn_multiline(f: &Item, r: &mut RichTextBuilder) {
+    r.push("pub fn ");
+    let (decl, gens) = match &f.inner {
+        ItemEnum::FunctionItem(f) => (&f.decl, &f.generics),
+        ItemEnum::MethodItem(m) => (&m.decl, &m.generics),
+        _ => unreachable!(),
+    };
+
+    r.push(f.name.as_ref().unwrap())
+        .text_color(theme::FUNCTION_COLOR);
+
+    if !gens.params.iter().all(|x| x.name.starts_with("impl ")) {
+        r.push("<");
+        format_generics_def(
+            gens.params.iter().filter(|x| !x.name.starts_with("impl ")),
+            r,
+        );
+        r.push(">");
+    }
+
+    r.push("(");
+    if !decl.inputs.is_empty() {
+	r.push("\n");
+    }
+    for (name, ty) in &decl.inputs {
+        r.push("    ");
+        if name == "self" {
+            r.push(&ty.to_string().replace("Self", "self"));
+            continue;
+        }
+        r.push(name);
+        r.push(": ");
+        format_ty(ty, r);
+	r.push(",\n");
+    }
+    r.push(")");
+    if let Some(ty) = &decl.output {
+        r.push(" -> ");
+        format_ty(ty, r);
+    }
+}
 
 pub fn format_seperated<'a, T>(
     items: impl Iterator<Item = T>,

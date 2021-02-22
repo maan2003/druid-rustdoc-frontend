@@ -5,21 +5,22 @@ use druid::{
     widget::{CrossAxisAlignment, Flex, Label, LineBreaking, RawLabel, Scroll, ViewSwitcher},
     Color, FontFamily, FontWeight, Key, Target, Widget, WidgetExt,
 };
+use r#fn::function;
 use rustdoc_types::{
     Function, GenericBound, GenericParamDef, GenericParamDefKind, Generics, Impl, Item, ItemEnum,
     ItemKind, ItemSummary, Method, Module, Struct, TraitBoundModifier, Type, Union,
 };
 
 use crate::{
-    format::{format_fn, format_generics_def, format_ty},
+    format::{format_fn, format_fn_multiline, format_generics_def, format_ty},
     lens::IdLens,
     md::markdown_to_text,
     theme, title_bar,
     widgets::{ItemsWidget, Seperator},
     AppData, GOTO_ITEM,
 };
-mod mod_;
 mod r#fn;
+mod mod_;
 pub fn ui_builder() -> impl Widget<AppData> {
     #[cfg(target_os = "windows")]
     {
@@ -43,7 +44,7 @@ fn item() -> impl Widget<(Item, Option<ItemSummary>)> {
             let x = match item.kind {
                 ItemKind::Module => mod_::module(item, summary.as_ref()).lens(Unit).boxed(),
                 ItemKind::Struct => struct_view(item, summary.as_ref()).lens(Unit).boxed(),
-                ItemKind::Function => function(item).lens(Unit).boxed(),
+                ItemKind::Function => function(item, summary.as_ref()).lens(Unit).boxed(),
                 _ => panic!("unknown {:?}", item.kind),
                 // ItemKind::ExternCrate => {}
                 // ItemKind::Import => {}
@@ -102,7 +103,7 @@ fn struct_view(item: &Item, summary: Option<&ItemSummary>) -> impl Widget<()> {
     let st = struct_(item);
 
     let mut name = RichTextBuilder::new();
-    name.push("Struct ");
+    name.push("struct ");
     for modu in summary
         .into_iter()
         .flat_map(|x| x.path.iter().take(x.path.len() - 1))
@@ -192,7 +193,7 @@ fn struct_view(item: &Item, summary: Option<&ItemSummary>) -> impl Widget<()> {
                 Blanket,
             }
             let classify = |a: &Impl| {
-                if dbg!(&a.trait_).is_none() {
+                if a.trait_.is_none() {
                     ImplType::Simple
                 } else if a.synthetic {
                     ImplType::Auto
@@ -330,51 +331,12 @@ fn impl_block(item: &Item) -> impl Widget<()> {
         .with_child(items.padding((10., 0., 0., 0.)))
 }
 
-fn function(item: &Item) -> impl Widget<()> {
-    fn func(item: &Item) -> &Function {
-        match &item.inner {
-            ItemEnum::FunctionItem(f) => f,
-            _ => unreachable!(),
-        }
-    }
-    let (type_, color) = item_kind_str(item);
-
-    let mut name = RichTextBuilder::new();
-    name.push("fn ");
-    name.push(item.name.as_ref().unwrap())
-        .text_color(color)
-        .weight(FontWeight::MEDIUM);
-    let name = RawLabel::new()
-        .with_font(theme::CODE_FONT)
-        .with_text_size(24.0)
-        .lens(Constant(name.build()));
-
-    let docs = markdown_to_text(&item.docs.as_deref().unwrap_or(""));
-    let docs = RawLabel::new()
-        .with_line_break_mode(LineBreaking::WordWrap)
-        .lens(Constant(docs));
-
-    Flex::column()
-        .cross_axis_alignment(CrossAxisAlignment::Start)
-        .with_child(name)
-        .with_default_spacer()
-        .with_child(
-            Seperator::new()
-                .with_color(Color::Rgba32(0x5c6773ff))
-                .with_size(1.0)
-                .with_stroke_style(StrokeStyle::new().dash(vec![2.0], 0.0)),
-        )
-        .with_default_spacer()
-        .with_flex_child(Scroll::new(docs).vertical(), 1.)
-}
-
-
 fn item_kind_str(i: &Item) -> (&'static str, Key<Color>) {
     match &i.inner {
         ItemEnum::ModuleItem(m) if m.is_crate => ("crate", theme::MOD_COLOR),
         ItemEnum::ModuleItem(_) => ("mod", theme::MOD_COLOR),
         // ItemEnum::ImportItem(_) => {}
-        ItemEnum::StructItem(_) | ItemEnum::UnionItem(_)=> ("Struct", theme::STRUCT_COLOR),
+        ItemEnum::StructItem(_) | ItemEnum::UnionItem(_) => ("Struct", theme::STRUCT_COLOR),
         // ItemEnum::StructFieldItem(_) => {}
         ItemEnum::EnumItem(_) => ("Enum", theme::ENUM_COLOR),
         ItemEnum::FunctionItem(_) => ("Function", theme::FUNCTION_COLOR),
