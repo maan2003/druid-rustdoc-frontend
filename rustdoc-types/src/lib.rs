@@ -72,7 +72,7 @@ pub struct Item {
     pub visibility: Visibility,
     /// The full markdown docstring of this item.
     #[serde(default)]
-    pub docs: Option<Arc<str>>,
+    pub docs: Option<String>,
     /// This mapping resolves [intra-doc links](https://github.com/rust-lang/rfcs/blob/master/text/1946-intra-rustdoc-links.md) from the docstring to their IDs
     pub links: HashMap<String, Id>,
     /// Stringified versions of the attributes on this item (e.g. `"#[inline]", PartialEq`)

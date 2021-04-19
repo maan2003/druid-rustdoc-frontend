@@ -49,7 +49,7 @@ pub fn markdown_to_text(text: &str) -> RichText {
             ParseEvent::Code(txt) => {
                 buffer.push_str(&txt);
                 let range = current_pos..current_pos + txt.len();
-                attrs.add(range, Attribute::font_family(FontFamily::MONOSPACE));
+                attrs.add(range, Attribute::font_family(theme::CODE_FONT));
                 current_pos += txt.len();
             }
             ParseEvent::Html(txt) => {
@@ -118,7 +118,7 @@ lazy_static::lazy_static! {
 
 fn highlighting_code(txt: &str, range: usize, attrs: &mut AttributeSpans) {
     let txt = &txt[range..];
-    
+
     let syntax = PS.find_syntax_by_extension("rs").unwrap();
     let mut h = HighlightLines::new(syntax, &TS.themes["Solarized (dark)"]);
     let mut current_pos = range;

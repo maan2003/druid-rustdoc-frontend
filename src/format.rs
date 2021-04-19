@@ -14,11 +14,10 @@ pub fn format_ty(ty: &Type, r: &mut RichTextBuilder) {
             args,
             param_names,
         } => {
-            let id = id.clone();
             let name = name.rsplit("::").next().unwrap();
             r.push(name)
                 .text_color(theme::STRUCT_COLOR)
-                .link(move |ctx, _| ctx.submit_command(super::GOTO_ITEM.with(id.clone())));
+                .link(super::GOTO_ITEM.with(id.clone()));
 
             if let Some(args) = args {
                 format_generic_args(args, r);
@@ -272,7 +271,7 @@ pub fn format_fn_multiline(f: &Item, r: &mut RichTextBuilder) {
 
     r.push("(");
     if !decl.inputs.is_empty() {
-	r.push("\n");
+        r.push("\n");
     }
     for (name, ty) in &decl.inputs {
         r.push("    ");
@@ -283,7 +282,7 @@ pub fn format_fn_multiline(f: &Item, r: &mut RichTextBuilder) {
         r.push(name);
         r.push(": ");
         format_ty(ty, r);
-	r.push(",\n");
+        r.push(",\n");
     }
     r.push(")");
     if let Some(ty) = &decl.output {
