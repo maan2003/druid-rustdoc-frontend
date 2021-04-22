@@ -205,8 +205,8 @@ pub enum ItemEnum {
     },
     ImportItem(Import),
 
-    UnionItem(Union),
     StructItem(Struct),
+    UnionItem(Union),
     StructFieldItem(Type),
     EnumItem(Enum),
     VariantItem(Variant),
@@ -365,44 +365,6 @@ pub struct GenericParamDef {
     pub kind: GenericParamDefKind,
 }
 
-impl Display for GenericParamDef {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.kind {
-            GenericParamDefKind::Lifetime => write!(f, "{}", self.name),
-            GenericParamDefKind::Type { bounds, default } => {
-                write!(f, "{}", self.name)?;
-                if !bounds.is_empty() {
-                    let bounds = bounds
-                        .iter()
-                        .map(|x| match x {
-                            GenericBound::TraitBound {
-                                trait_,
-                                generic_params,
-                                modifier,
-                            } => {
-                                format!(
-                                    "{}{}",
-                                    match modifier {
-                                        TraitBoundModifier::Maybe => "?",
-                                        TraitBoundModifier::MaybeConst => "?const ",
-                                        TraitBoundModifier::None => "",
-                                    },
-                                    trait_
-                                )
-                            }
-                            GenericBound::Outlives(l) => l.clone(),
-                        })
-                        .collect::<Vec<_>>()
-                        .join(" + ");
-                    write!(f, ": {}", bounds)?;
-                }
-                Ok(())
-                // format!("{}: {} = {}", x.name, bounds)
-            }
-            GenericParamDefKind::Const(c) => write!(f, "const {}: {}", self.name, c),
-        }
-    }
-}
 
 #[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Data, Serialize, Deserialize, PartialEq)]
@@ -508,58 +470,6 @@ pub enum Type {
     },
 }
 
-impl std::fmt::Display for Type {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Type::ResolvedPath {
-                name,
-                id,
-                args,
-                param_names,
-            } => {
-                write!(f, "{}", name)
-            }
-            Type::Generic(g) => write!(f, "{}", g),
-            Type::Primitive(p) => write!(f, "{}", p),
-            Type::FunctionPointer(f) => panic!("unknown"),
-            Type::Tuple(t) => write!(
-                f,
-                "({})",
-                t.iter()
-                    .map(|x| format!("{}", x))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
-            Type::Slice(s) => write!(f, "[{}]", s),
-            Type::Array { type_, len } => write!(f, "[{}; {}]", type_, len),
-            Type::Never => write!(f, "!"),
-            Type::Infer => write!(f, "_"),
-            Type::RawPointer { mutable: mu, type_ } => {
-                write!(f, "*{} {}", if *mu { "mut" } else { "const" }, type_)
-            }
-            Type::BorrowedRef {
-                lifetime: Some(lf),
-                mutable: mu,
-                type_,
-            } => {
-                write!(f, "&'{} {}{}", lf, if *mu { "mut " } else { "" }, type_)
-            }
-            Type::BorrowedRef {
-                lifetime: None,
-                mutable: mu,
-                type_,
-            } => {
-                write!(f, "&{}{}", if *mu { "mut " } else { "" }, type_)
-            }
-            Type::QualifiedPath {
-                name,
-                self_type,
-                trait_,
-            } => write!(f, "<{} as {}>::{}", self_type, trait_, name),
-            _ => Ok(()),
-        }
-    }
-}
 
 #[derive(Clone, Debug, Data, Lens, Serialize, Deserialize, PartialEq)]
 pub struct FunctionPointer {

@@ -1,46 +1,32 @@
-use druid::lens;
-use druid::widget::{Maybe, Scope};
+use druid::im::Vector;
+use druid::widget::ViewSwitcher;
+use druid::widget::{List, Maybe};
+use druid::{lens, Data};
 use druid::{
-    lens::{Constant, Unit},
-    piet::StrokeStyle,
-    text::{Attribute, RichText, RichTextBuilder},
-    widget::{CrossAxisAlignment, Flex, Label, LineBreaking, RawLabel, Scroll, ViewSwitcher},
-    Color, FontFamily, FontWeight, Key, Target, Widget, WidgetExt,
+    text::RichTextBuilder,
+    widget::{CrossAxisAlignment, Flex, Label, RawLabel},
+    Color, Key, Widget, WidgetExt,
 };
-use druid_widget_nursery::Seperator;
-// use r#fn::function;
-// use rustdoc_types::{
-//     Function, GenericBound, GenericParamDef, GenericParamDefKind, Generics, Impl, Item, ItemEnum,
-//     ItemKind, ItemSummary, Method, Module, Struct, TraitBoundModifier, Type, Union,
-// };
+use druid_simple_table::Table;
+use rustdoc_types::GenericParamDefKind;
 
 use crate::data;
+use crate::format::format_seperated;
 use crate::widgets::*;
 use crate::{
-    format::{format_fn, format_fn_multiline, format_generics_def, format_ty},
-    md::markdown_to_text,
+    format::{format_fn, format_generics_def, format_ty, format_wheres},
     theme, GOTO_ITEM,
 };
 
 pub fn ui_builder() -> impl Widget<data::Screen> {
-    ViewSwitcher::new(
-        |data, _env| std::mem::discriminant(data),
-        |_, data, _| {
-            mod_()
-                .lens(lens::Map::new(
-                    |screen| match screen {
-                        data::Screen::Mod(m) => m.clone(),
-                        _ => unreachable!("bug in view switcher :shrug: I have hit this before"),
-                    },
-                    |scr, m| *scr = data::Screen::Mod(m.clone()),
-                ))
-                .boxed()
-        },
-    )
+    data::Screen::matcher()
+        .mod_(mod_())
+        .struct_(struct_())
+        .enum_(enum_())
 }
 
 fn mod_() -> impl Widget<data::Mod> {
-    let name = RawLabel::new()
+    let name = RawLabel::code()
         .with_text_size(24.)
         .computed(|t: &data::Mod| {
             let mut r = RichTextBuilder::new();
@@ -49,343 +35,362 @@ fn mod_() -> impl Widget<data::Mod> {
             r.build()
         });
 
-    let docs = Maybe::or_empty(|| RawLabel::new()).lens(lens!(data::Mod, item.doc));
+    let docs = RawLabel::new()
+        .wrap_text()
+        .or_empty()
+        .lens(lens!(data::Mod, item.doc));
+
+    let mods = item_list("Modules", theme::MOD_COLOR).lens(lens!(data::Mod, mods));
+    let structs = item_list("Structs", theme::STRUCT_COLOR).lens(lens!(data::Mod, structs));
+    let enums = item_list("Enums", theme::ENUM_COLOR).lens(lens!(data::Mod, enums));
+    let fns = item_list("Functions", theme::FUNCTION_COLOR).lens(lens!(data::Mod, fns));
 
     Flex::column()
         .cross_axis_alignment(CrossAxisAlignment::Start)
         .with_child(name)
-        .with_child(
-            Seperator::new()
-                .with_size(1.)
-                .with_stroke_style(StrokeStyle::new().dash_pattern(&[2.]))
-                .padding((0., 5.)),
-        )
+        .seperator(1)
         .with_default_spacer()
         .with_child(docs)
+        .with_default_spacer()
+        .with_child(mods)
+        .with_child(structs)
+        .with_child(enums)
+        .with_child(fns)
         .padding(10.)
-        .scroll().vertical()
+        .scroll()
+        .vertical()
 }
 
-// fn item() -> impl Widget<(Item, Option<ItemSummary>)> {
-//     ViewSwitcher::new(
-//         |data: &(Item, Option<ItemSummary>), _env| data.clone(),
-//         |_, (item, summary), _env| {
-//             let time = std::time::Instant::now();
-//             let x = match item.kind {
-//                 ItemKind::Module => mod_::module(item, summary.as_ref()).lens(Unit).boxed(),
-//                 ItemKind::Struct => struct_view(item, summary.as_ref()).lens(Unit).boxed(),
-//                 ItemKind::Function => function(item, summary.as_ref()).lens(Unit).boxed(),
-//                 _ => panic!("unknown {:?}", item.kind),
-//                 // ItemKind::ExternCrate => {}
-//                 // ItemKind::Import => {}
-//                 // ItemKind::StructField => {}
-//                 // ItemKind::Union => {}
-//                 // ItemKind::Enum => {}
-//                 // ItemKind::Variant => {}
-//                 // ItemKind::Function => {}
-//                 // ItemKind::Typedef => {}
-//                 // ItemKind::OpaqueTy => {}
-//                 // ItemKind::Constant => {}
-//                 // ItemKind::Trait => {}
-//                 // ItemKind::TraitAlias => {}
-//                 // ItemKind::Method => {}
-//                 // ItemKind::Impl => {}
-//                 // ItemKind::Static => {}
-//                 // ItemKind::ForeignType => {}
-//                 // ItemKind::Macro => {}
-//                 // ItemKind::ProcAttribute => {}
-//                 // ItemKind::ProcDerive => {}
-//                 // ItemKind::AssocConst => {}
-//                 // ItemKind::AssocType => {}
-//                 // ItemKind::Primitive => {}
-//                 // ItemKind::Keyword => {}
-//             };
-//             dbg!(time.elapsed());
-//             x
-//         },
-//     )
-// }
+fn item_list(head: &'static str, color: Key<Color>) -> impl Widget<Vector<data::Item>> {
+    let mods = Table::new()
+        .seperator(0., 0.)
+        .col(move || {
+            RawLabel::code()
+                .color(color)
+                .lens(lens!(data::Item, name))
+                .on_click(|ctx, it, _env| {
+                    ctx.submit_command(GOTO_ITEM.with(it.id.clone()));
+                })
+        })
+        .col(|| {
+            RawLabel::code()
+                .padding((20., 0., 0., 0.))
+                .or_empty()
+                .lens(lens!(data::Item, short_doc))
+        });
 
-// fn struct_view(item: &Item, summary: Option<&ItemSummary>) -> impl Widget<()> {
-//     fn struct_(item: &Item) -> &Union {
-//         match &item.inner {
-//             ItemEnum::UnionItem(s) => s,
-//             _ => panic!("{:?}", item.inner),
-//         }
-//     }
+    Flex::column()
+        .cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(h2(head))
+        .seperator(2)
+        .with_child(mods)
+        .with_spacer(20.)
+        .empty_if(|m, _| m.is_empty())
+}
 
-//     fn field(item: &Item) -> &Type {
-//         match &item.inner {
-//             ItemEnum::StructFieldItem(s) => s,
-//             _ => unreachable!(),
-//         }
-//     }
+fn h2<T: Data>(txt: &str) -> impl Widget<T> {
+    Label::new(txt).with_text_size(21.)
+}
 
-//     fn impl_(item: &Item) -> &Impl {
-//         match &item.inner {
-//             ItemEnum::ImplItem(s) => s,
-//             _ => unreachable!(),
-//         }
-//     }
+fn struct_() -> impl Widget<data::Struct> {
+    let name = RawLabel::code()
+        .with_text_size(24.)
+        .computed(|t: &data::Struct| {
+            let mut r = RichTextBuilder::new();
+            r.push("struct ");
+            r.push(&t.item.name).text_color(theme::STRUCT_COLOR);
+            if !t.generics.params.is_empty() {
+                r.push("<");
+                format_generics_def(&t.generics.params, true, &mut r);
+                r.push(">");
+            }
+            r.build()
+        });
 
-//     let (type_, color) = item_kind_str(item);
+    let generics = RawLabel::code()
+        .computed(|t: &data::Struct| {
+            let mut r = RichTextBuilder::new();
+            format_wheres(&t.generics.params, &t.generics.where_predicates, &mut r);
+            r.build()
+        })
+        .empty_if(|t, _| {
+            t.generics.where_predicates.is_empty()
+                && !t.generics.params.iter().any(|i| {
+                    matches!( &i.kind,
+                               GenericParamDefKind::Type { bounds, .. } if !bounds.is_empty())
+                })
+        });
 
-//     let st = struct_(item);
+    let docs = RawLabel::new()
+        .wrap_text()
+        .or_empty()
+        .lens(lens!(data::Struct, item.doc));
 
-//     let mut name = RichTextBuilder::new();
-//     name.push("struct ");
-//     for modu in summary
-//         .into_iter()
-//         .flat_map(|x| x.path.iter().take(x.path.len() - 1))
-//     {
-//         name.push(modu).text_color(theme::MOD_COLOR);
-//         name.push("::");
-//     }
-//     name.push(item.name.as_ref().unwrap())
-//         .text_color(theme::STRUCT_COLOR);
+    let feilds = List::new(|| {
+        let docs = RawLabel::new()
+            .wrap_text()
+            .padding((10., 5., 0., 10.))
+            .or_empty()
+            .lens(lens!(data::Field, item.doc));
 
-//     if !st.generics.params.is_empty() {
-//         name.push("<");
-//         format_generics_def(&st.generics.params, &mut name);
-//         name.push(">");
-//     }
+        Flex::column()
+            .cross_axis_alignment(CrossAxisAlignment::Start)
+            .with_child(RawLabel::code().computed(|t: &data::Field| {
+                let mut r = RichTextBuilder::new();
+                r.push(&t.item.name);
+                r.push(": ");
+                format_ty(&t.ty, false, &mut r);
+                r.build()
+            }))
+            .with_child(docs)
+    });
 
-//     let name = name
-//         .build()
-//         .with_attribute(.., Attribute::Weight(FontWeight::MEDIUM))
-//         .with_attribute(
-//             ..,
-//             Attribute::font_family(FontFamily::new_unchecked("Fira Code")),
-//         );
+    let fields = Flex::column()
+        .cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(h2("Fields"))
+        .seperator(2)
+        .with_child(feilds)
+        .with_default_spacer()
+        .empty_if(|f: &Vector<_>, _| f.is_empty())
+        .lens(lens!(data::Struct, fields));
 
-//     let name = RawLabel::new().with_text_size(22.5).lens(Constant(name));
+    let impls = List::new(impl_).with_spacing(20.);
+    let impls = Flex::column()
+        .cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(h2("Implementations"))
+        .seperator(2)
+        .with_child(impls)
+        .with_spacer(20.)
+        .empty_if(|i: &Vector<_>, _| i.is_empty())
+        .lens(lens!(data::Struct, impls));
 
-//     let mut body = Flex::column().cross_axis_alignment(CrossAxisAlignment::Start);
+    let trait_impls = List::new(impl_).with_spacing(20.);
+    let trait_impls = Flex::column()
+        .cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(h2("Trait Implementations"))
+        .seperator(2)
+        .with_child(trait_impls)
+        .with_spacer(20.)
+        .empty_if(|i: &Vector<_>, _| i.is_empty())
+        .lens(lens!(data::Struct, trait_impls));
 
-//     if let Some(docs) = &item.docs {
-//         let docs = markdown_to_text(docs);
-//         let docs = RawLabel::new()
-//             .with_line_break_mode(LineBreaking::WordWrap)
-//             .lens(Constant(docs));
-//         body.add_child(docs);
-//         body.add_default_spacer();
-//     }
+    let auto_impls = List::new(impl_).with_spacing(20.);
+    let auto_impls = Flex::column()
+        .cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(h2("Auto Implementations"))
+        .seperator(2)
+        .with_child(auto_impls)
+        .with_spacer(20.)
+        .empty_if(|i: &Vector<_>, _| i.is_empty())
+        .lens(lens!(data::Struct, auto_impls));
+    Flex::column()
+        .cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(name)
+        .with_child(generics)
+        .seperator(1)
+        .with_default_spacer()
+        .with_child(docs)
+        .with_default_spacer()
+        .with_child(fields)
+        .with_child(impls)
+        .with_child(trait_impls)
+        .with_default_spacer()
+        .with_default_spacer()
+        .with_child(auto_impls)
+        .padding(10.)
+        .scroll()
+        .vertical()
+}
 
-//     // fields
-//     if !st.fields.is_empty() {
-//         let fields = ItemsWidget::new(
-//             st.fields.iter().cloned().collect(),
-//             |mut field_items, _env| {
-//                 let mut fields = Flex::column()
-//                     .cross_axis_alignment(CrossAxisAlignment::Start)
-//                     .with_child(Label::new("Fields").with_text_size(22.4))
-//                     .with_spacer(5.0)
-//                     .with_child(Seperator::new().with_size(1.0))
-//                     .with_spacer(5.0);
+fn enum_() -> impl Widget<data::Enum> {
+    let name = RawLabel::code()
+        .with_text_size(24.)
+        .computed(|t: &data::Enum| {
+            let mut r = RichTextBuilder::new();
+            r.push("enum ");
+            r.push(&t.item.name).text_color(theme::STRUCT_COLOR);
+            if !t.generics.params.is_empty() {
+                r.push("<");
+                format_generics_def(&t.generics.params, true, &mut r);
+                r.push(">");
+            }
+            r.build()
+        });
 
-//                 for (f, summary) in field_items {
-//                     let mut r = RichTextBuilder::new();
-//                     r.push(f.name.as_ref().unwrap());
-//                     r.push(": ");
-//                     format_ty(field(&f), &mut r);
+    let generics = RawLabel::code()
+        .computed(|t: &data::Enum| {
+            let mut r = RichTextBuilder::new();
+            format_wheres(&t.generics.params, &t.generics.where_predicates, &mut r);
+            r.build()
+        })
+        .empty_if(|t, _| {
+            t.generics.where_predicates.is_empty()
+                && !t.generics.params.iter().any(|i| {
+                    matches!( &i.kind,
+                               GenericParamDefKind::Type { bounds, .. } if !bounds.is_empty())
+                })
+        });
 
-//                     fields.add_child(
-//                         RawLabel::new()
-//                             .with_font(theme::CODE_FONT)
-//                             .lens(Constant(r.build()))
-//                             .padding((5., 0., 0., 0.)),
-//                     );
+    let variants = Flex::column()
+        .cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(h2("Variants"))
+        .seperator(2)
+        .with_child(List::new(variant))
+        .with_default_spacer()
+        .empty_if(|f: &Vector<_>, _| f.is_empty())
+        .lens(lens!(data::Enum, variants));
 
-//                     if let Some(docs) = &f.docs {
-//                         let docs = markdown_to_text(docs);
-//                         let docs = RawLabel::new()
-//                             .with_line_break_mode(LineBreaking::WordWrap)
-//                             .padding((10., 0., 0., 0.))
-//                             .lens(Constant(docs));
-//                         fields.add_child(docs);
-//                         fields.add_default_spacer();
-//                     } else {
-//                         fields.add_spacer(5.0);
-//                     }
-//                 }
-//                 fields.boxed()
-//             },
-//         );
+    let docs = RawLabel::new()
+        .wrap_text()
+        .or_empty()
+        .lens(lens!(data::Enum, item.doc));
 
-//         // impls
-//         let impls = ItemsWidget::new(st.impls.iter().cloned().collect(), |mut impl_items, _| {
-//             let mut impls = Flex::column().cross_axis_alignment(CrossAxisAlignment::Start);
-//             #[derive(Ord, PartialOrd, Eq, PartialEq)]
-//             enum ImplType {
-//                 Simple,
-//                 Trait,
-//                 Auto,
-//                 Blanket,
-//             }
-//             let classify = |a: &Impl| {
-//                 if a.trait_.is_none() {
-//                     ImplType::Simple
-//                 } else if a.synthetic {
-//                     ImplType::Auto
-//                 } else if a.blanket_impl.is_some() {
-//                     dbg!("blanket");
-//                     ImplType::Blanket
-//                 } else {
-//                     ImplType::Trait
-//                 }
-//             };
-//             impl_items.sort_by(|(a, _), (b, _)| {
-//                 let ai = impl_(&a);
-//                 let bi = impl_(&b);
-//                 classify(ai).cmp(&classify(bi))
-//             });
-//             let mut start = ImplType::Blanket;
-//             for (item, summary) in impl_items {
-//                 let i = impl_(&item);
-//                 let kind = classify(i);
-//                 if kind != start {
-//                     let heading = match kind {
-//                         ImplType::Simple => "Implementations",
-//                         ImplType::Trait => "Trait Implementations",
-//                         ImplType::Auto => "Auto Trait Implementations",
-//                         ImplType::Blanket => "Blanket Implementations",
-//                     };
-//                     impls.add_child(Label::new(heading).with_text_size(22.4));
-//                     impls.add_spacer(3.0);
-//                     impls.add_child(Seperator::new().with_size(1.0));
-//                     impls.add_default_spacer();
-//                     start = kind;
-//                 }
-//                 impls.add_child(impl_block(&item).padding((0., 0.0, 0.0, 0.0)));
-//             }
-//             impls.boxed()
-//         });
+    let impls = List::new(impl_).with_spacing(20.);
+    let impls = Flex::column()
+        .cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(h2("Implementations"))
+        .seperator(2)
+        .with_child(impls)
+        .with_spacer(20.)
+        .empty_if(|i: &Vector<_>, _| i.is_empty())
+        .lens(lens!(data::Enum, impls));
 
-//         body.add_child(fields);
-//         body.add_child(impls);
-//     }
+    let trait_impls = List::new(impl_).with_spacing(20.);
+    let trait_impls = Flex::column()
+        .cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(h2("Trait Implementations"))
+        .seperator(2)
+        .with_child(trait_impls)
+        .with_spacer(20.)
+        .empty_if(|i: &Vector<_>, _| i.is_empty())
+        .lens(lens!(data::Enum, trait_impls));
 
-//     Flex::column()
-//         .cross_axis_alignment(CrossAxisAlignment::Start)
-//         .with_child(name)
-//         .with_default_spacer()
-//         .with_child(
-//             Seperator::new()
-//                 .with_color(Color::Rgba32(0x5c6773ff))
-//                 .with_size(1.0)
-//                 .with_stroke_style(StrokeStyle::new().dash(vec![2.0], 0.0)),
-//         )
-//         .with_default_spacer()
-//         .with_flex_child(Scroll::new(body).vertical(), 1.0)
-// }
+    let auto_impls = List::new(impl_).with_spacing(20.);
+    let auto_impls = Flex::column()
+        .cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(h2("Auto Implementations"))
+        .seperator(2)
+        .with_child(auto_impls)
+        .with_spacer(20.)
+        .empty_if(|i: &Vector<_>, _| i.is_empty())
+        .lens(lens!(data::Enum, auto_impls));
+    Flex::column()
+        .cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(name)
+        .with_child(generics)
+        .seperator(1)
+        .with_default_spacer()
+        .with_child(docs)
+        .with_default_spacer()
+        .with_child(variants)
+        .with_child(impls)
+        .with_child(trait_impls)
+        .with_default_spacer()
+        .with_default_spacer()
+        .with_child(auto_impls)
+        .padding(10.)
+        .scroll()
+        .vertical()
+}
 
-// fn impl_block(item: &Item) -> impl Widget<()> {
-//     fn impl_(item: &Item) -> &Impl {
-//         match &item.inner {
-//             ItemEnum::ImplItem(s) => s,
-//             _ => unreachable!(),
-//         }
-//     }
+fn variant() -> impl Widget<data::Variant> {
+    let docs = RawLabel::new()
+        .wrap_text()
+        .padding((10., 5., 0., 10.))
+        .or_empty()
+        .lens(lens!(data::Variant, item.doc));
 
-//     let i = impl_(item);
-//     let mut r = RichTextBuilder::new();
-//     r.push("impl ");
-//     if let Some(tr) = &i.trait_ {
-//         format_ty(tr, &mut r);
-//         r.push(" for ");
-//     }
-//     format_ty(&i.for_, &mut r);
+    let label = RawLabel::code().computed(|v: &data::Variant| {
+        let mut r = RichTextBuilder::new();
+        r.push(&v.item.name).text_color(theme::ENUM_COLOR);
+        match &v.inner {
+            data::VariantInner::Plain => {}
+            data::VariantInner::Tuple(ts) => {
+                r.push("(");
+                format_seperated(ts.iter(), ", ", &mut r, |ty, r| {
+                    format_ty(ty, false, r);
+                });
+                r.push(")");
+            }
+            data::VariantInner::Struct(fs) => {
+                if !fs.is_empty() {
+                    r.push(" {");
+                    r.push("\n");
+                } else {
+                    r.push("{ ");
+                }
+                for f in fs.iter() {
+                    r.push("    ");
+                    r.push(&f.item.name);
+                    r.push(": ");
+                    format_ty(&f.ty, false, &mut r);
+                    r.push(",");
+                    r.push("\n");
+                }
+                r.push("}");
+            }
+        }
+        r.build()
+    });
+    Flex::column()
+        .cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(label)
+        .with_child(docs)
+}
 
-//     let name = RawLabel::new()
-//         .with_font(theme::CODE_FONT)
-//         .lens(Constant(r.build()));
+fn impl_() -> impl Widget<data::Impl> {
+    let head = RawLabel::code().computed(|i: &data::Impl| {
+        let mut r = RichTextBuilder::new();
+        r.push("impl");
+        if !i.generics.params.is_empty() {
+            r.push("<");
+            format_generics_def(&i.generics.params, true, &mut r);
+            r.push(">");
+        }
 
-//     let items = ItemsWidget::new(i.items.iter().cloned().collect(), |items, _| {
-//         let mut flex = Flex::column().cross_axis_alignment(CrossAxisAlignment::Start);
-//         for (item, summary) in items {
-//             let mut r = RichTextBuilder::new();
-//             match &item.inner {
-//                 ItemEnum::FunctionItem(m) => {
-//                     format_fn(&item, &mut r);
-//                 }
-//                 ItemEnum::AssocConstItem { type_, default } => {
-//                     r.push("pub const ");
-//                     r.push(&item.name.as_ref().unwrap())
-//                         .text_color(theme::CONST_COLOR);
+        r.push(" ");
+        if let Some(tr) = &i.trait_ {
+            format_ty(tr, true, &mut r);
+            r.push(" for ");
+        }
+        format_ty(&i.for_, false, &mut r);
+        if !i.generics.where_predicates.is_empty()
+            || i.generics.params.iter().any(|i| {
+                matches!( &i.kind,
+                GenericParamDefKind::Type { bounds, .. } if !bounds.is_empty())
+            })
+        {
+            r.push("\n");
+            format_wheres(&i.generics.params, &i.generics.where_predicates, &mut r);
+        }
+        r.build()
+    });
+    let items = List::new(|| data::ImplItem::matcher().fn_(impl_fn()))
+        .with_spacing(10.)
+        .padding((0., 10., 0., 0.))
+        .empty_if(|d: &Vector<_>, _| d.is_empty())
+        .lens(lens!(data::Impl, items));
 
-//                     if let Some(def) = default {
-//                         r.push(" = ");
-//                         r.push(def);
-//                     }
-//                 }
-//                 ItemEnum::AssocTypeItem { bounds, default } => {
-//                     r.push("pub type ");
-//                     r.push(&item.name.as_ref().unwrap())
-//                         .text_color(theme::TYPE_COLOR);
-//                 }
-//                 ItemEnum::TypedefItem(t) => {
-//                     r.push("pub type ");
-//                     r.push(&item.name.as_ref().unwrap())
-//                         .text_color(theme::TYPE_COLOR);
-//                     r.push(" = ");
-//                     format_ty(&t.type_, &mut r);
-//                 }
-//                 _ => {
-//                     eprintln!("Unknown thing {:?}", item)
-//                 }
-//             };
+    Flex::column()
+        .cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(head)
+        .with_child(items)
+}
 
-//             flex.add_child(
-//                 RawLabel::new()
-//                     .with_font(theme::CODE_FONT)
-//                     .lens(Constant(r.build())),
-//             );
-//             if let Some(docs) = &item.docs {
-//                 let docs = markdown_to_text(&docs);
-//                 let docs = RawLabel::new()
-//                     .with_line_break_mode(LineBreaking::WordWrap)
-//                     .padding((20., 0., 0., 0.))
-//                     .lens(Constant(docs));
+fn impl_fn() -> impl Widget<data::Fn> {
+    let docs = RawLabel::new()
+        .wrap_text()
+        .padding((10., 10., 0., 10.))
+        .or_empty()
+        .lens(lens!(data::Fn, item.doc));
 
-//                 flex.add_child(docs);
-//                 flex.add_spacer(10.);
-//             }
-//             flex.add_spacer(20.);
-//         }
-//         flex.boxed()
-//     });
-//     Flex::column()
-//         .cross_axis_alignment(CrossAxisAlignment::Start)
-//         .with_child(name)
-//         .with_spacer(5.)
-//         .with_child(items.padding((10., 0., 0., 0.)))
-// }
-
-// fn item_kind_str(i: &Item) -> (&'static str, Key<Color>) {
-//     match &i.inner {
-//         ItemEnum::ModuleItem(m) if m.is_crate => ("crate", theme::MOD_COLOR),
-//         ItemEnum::ModuleItem(_) => ("mod", theme::MOD_COLOR),
-//         // ItemEnum::ImportItem(_) => {}
-//         ItemEnum::StructItem(_) | ItemEnum::UnionItem(_) => ("Struct", theme::STRUCT_COLOR),
-//         // ItemEnum::StructFieldItem(_) => {}
-//         ItemEnum::EnumItem(_) => ("Enum", theme::ENUM_COLOR),
-//         ItemEnum::FunctionItem(_) => ("Function", theme::FUNCTION_COLOR),
-//         ItemEnum::TraitItem(_) => ("Trait", theme::TRAIT_COLOR),
-//         // ItemEnum::VariantItem(_) => {}
-//         // ItemEnum::FunctionItem(_) => {}
-//         // ItemEnum::TraitAliasItem(_) => {}
-//         // ItemEnum::MethodItem(_) => {}
-//         // ItemEnum::ImplItem(_) => {}
-//         // ItemEnum::TypedefItem(_) => {}
-//         // ItemEnum::OpaqueTyItem(_) => {}
-//         ItemEnum::ConstantItem(_) => ("const", theme::FUNCTION_COLOR),
-//         // ItemEnum::StaticItem(_) => {}
-//         // ItemEnum::ForeignTypeItem => {}
-//         // ItemEnum::MacroItem(_) => {}
-//         // ItemEnum::ProcMacroItem(_) => {}
-//         _ => ("Unknown Item", theme::MOD_COLOR),
-//         // ItemEnum::ExternCrateItem { name, rename } => {}
-//         // ItemEnum::AssocConstItem { type_, default } => {}
-//         // ItemEnum::AssocTypeItem { bounds, default } => {}
-//     }
-// }
+    Flex::column()
+        .cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(RawLabel::code().computed(|f: &data::Fn| {
+            let mut r = RichTextBuilder::new();
+            format_fn(&f.item.name, &f.header, &f.generics, &f.decl, &mut r);
+            r.build()
+        }))
+        .with_child(docs)
+        .padding((20., 0., 0., 0.))
+}

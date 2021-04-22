@@ -13,6 +13,10 @@ pulldown-cmark = "0.8.0"
 rustdoc-types = { path = "rustdoc-types" }
 syntect = "4.5.0"
 lazy_static = "1.4"
+open = "1.7.0"
+druid_simple_table = { path = "../druid_simple_table/" }
+druid-enums = { git = "https://github.com/Finnerale/druid-enums" }
+log = "0.4.14"
 
 # [patch.crates-io]
 # piet = { git = "https://github.com/ForLoveOfCats/piet", branch = "PangoWrapping" }

@@ -1,12 +1,13 @@
+use druid::im::Vector;
 use druid::text::RichTextBuilder;
 use rustdoc_types::{
-    GenericArg, GenericArgs, GenericBound, GenericParamDef, GenericParamDefKind, Item, ItemEnum,
-    TraitBoundModifier, Type,
+    FnDecl, GenericArg, GenericArgs, GenericBound, GenericParamDef, GenericParamDefKind, Generics,
+    Qualifiers, TraitBoundModifier, Type, WherePredicate,
 };
 
 use crate::theme;
 
-pub fn format_ty(ty: &Type, r: &mut RichTextBuilder) {
+pub fn format_ty(ty: &Type, hint_trait: bool, r: &mut RichTextBuilder) {
     match ty {
         Type::ResolvedPath {
             name,
@@ -16,7 +17,11 @@ pub fn format_ty(ty: &Type, r: &mut RichTextBuilder) {
         } => {
             let name = name.rsplit("::").next().unwrap();
             r.push(name)
-                .text_color(theme::STRUCT_COLOR)
+                .text_color(if hint_trait {
+                    theme::TRAIT_COLOR
+                } else {
+                    theme::STRUCT_COLOR
+                })
                 .link(super::GOTO_ITEM.with(id.clone()));
 
             if let Some(args) = args {
@@ -27,35 +32,34 @@ pub fn format_ty(ty: &Type, r: &mut RichTextBuilder) {
             r.push(g).text_color(theme::TYPE_COLOR);
         }
         Type::Primitive(p) => {
-            r.push(p).text_color(theme::STRUCT_COLOR);
+            r.push(p).text_color(theme::PRIMITIVE_COLOR);
         }
         Type::FunctionPointer(f) => {
             r.push("(");
-            let mut is_first = true;
             format_seperated(f.decl.inputs.iter(), ", ", r, |(name, ty), r| {
                 r.push(name);
                 r.push(": ");
-                format_ty(ty, r);
+                format_ty(ty, false, r);
             });
             r.push(")");
             if let Some(ty) = &f.decl.output {
                 r.push(" -> ");
-                format_ty(ty, r);
+                format_ty(ty, false, r);
             }
         }
         Type::Tuple(t) => {
             r.push("(");
-            format_seperated(t.iter(), ", ", r, format_ty);
+            format_seperated(t.iter(), ", ", r, |ty, r| format_ty(ty, false, r));
             r.push(")");
         }
         Type::Slice(s) => {
             r.push("&[");
-            format_ty(&s, r);
+            format_ty(&s, false, r);
             r.push("]");
         }
         Type::Array { type_, len } => {
             r.push("[");
-            format_ty(type_, r);
+            format_ty(type_, false, r);
             r.push("; ");
             r.push(len);
             r.push("]");
@@ -73,7 +77,7 @@ pub fn format_ty(ty: &Type, r: &mut RichTextBuilder) {
             } else {
                 r.push("const ");
             }
-            format_ty(type_, r);
+            format_ty(type_, false, r);
         }
         Type::BorrowedRef {
             lifetime,
@@ -88,23 +92,23 @@ pub fn format_ty(ty: &Type, r: &mut RichTextBuilder) {
             if *mutable {
                 r.push("mut ");
             }
-            format_ty(type_, r);
+            format_ty(type_, false, r);
         }
         Type::QualifiedPath {
             name,
             self_type,
             trait_,
         } => {
-            match (trait_ as &Type) {
+            match trait_ as &Type {
                 Type::ResolvedPath { name, .. } if name == "" => {
-                    format_ty(self_type, r);
+                    format_ty(self_type, false, r);
                     r.push("::");
                 }
                 _ => {
                     r.push("<");
-                    format_ty(self_type, r);
+                    format_ty(self_type, false, r);
                     r.push(" as ");
-                    format_ty(trait_, r);
+                    format_ty(trait_, true, r);
                     r.push(">::");
                 }
             }
@@ -119,6 +123,7 @@ pub fn format_ty(ty: &Type, r: &mut RichTextBuilder) {
 
 pub fn format_generics_def<'a>(
     g: impl IntoIterator<Item = &'a GenericParamDef>,
+    no_bounds: bool,
     r: &'a mut RichTextBuilder,
 ) {
     format_seperated(g.into_iter(), ", ", r, |g, r| match &g.kind {
@@ -127,16 +132,21 @@ pub fn format_generics_def<'a>(
         }
         GenericParamDefKind::Type { bounds, default } => {
             r.push(&g.name).text_color(theme::TYPE_COLOR);
-            if !bounds.is_empty() {
+            if !bounds.is_empty() && !no_bounds {
                 r.push(": ");
                 format_generic_bound(bounds, r);
             }
             if let Some(def) = default {
                 r.push(" = ");
-                format_ty(def, r);
+                format_ty(def, false, r);
             }
         }
-        GenericParamDefKind::Const(c) => {}
+        GenericParamDefKind::Const(c) => {
+            r.push("const ");
+            r.push(&g.name).text_color(theme::TYPE_COLOR);
+            r.push(": ");
+            format_ty(c, false, r);
+        }
     });
 }
 
@@ -153,7 +163,7 @@ pub fn format_generic_bound<'a>(
             } => {
                 if !generic_params.is_empty() {
                     r.push("for<");
-                    format_generics_def(generic_params, r);
+                    format_generics_def(generic_params, false, r);
                     r.push("> ");
                 }
                 match modifier {
@@ -165,7 +175,7 @@ pub fn format_generic_bound<'a>(
                         r.push("?const ");
                     }
                 }
-                format_ty(trait_, r);
+                format_ty(trait_, true, r);
             }
             GenericBound::Outlives(a) => {
                 r.push(a);
@@ -183,7 +193,7 @@ pub fn format_generic_args(g: &GenericArgs, r: &mut RichTextBuilder) {
                     r.push(lf);
                 }
                 GenericArg::Type(ty) => {
-                    format_ty(ty, r);
+                    format_ty(ty, false, r);
                 }
                 GenericArg::Const(c) => {
                     r.push("{");
@@ -195,32 +205,79 @@ pub fn format_generic_args(g: &GenericArgs, r: &mut RichTextBuilder) {
         }
         GenericArgs::Parenthesized { inputs, output } => {
             r.push("(");
-            format_seperated(inputs.iter(), ", ", r, format_ty);
+            format_seperated(inputs.iter(), ", ", r, |ty, r| format_ty(ty, false, r));
             r.push(")");
             if let Some(ty) = output {
                 r.push(" -> ");
-                format_ty(ty, r);
+                format_ty(ty, false, r);
             }
         }
         _ => {}
     }
 }
 
-pub fn format_fn(f: &Item, r: &mut RichTextBuilder) {
+pub fn format_wheres<'a>(
+    others: impl IntoIterator<Item = &'a GenericParamDef>,
+    wheres: impl IntoIterator<Item = &'a WherePredicate>,
+    r: &mut RichTextBuilder,
+) {
+    r.push("where");
+    for i in others {
+        match &i.kind {
+            GenericParamDefKind::Type { bounds, default } if !bounds.is_empty() => {
+                r.push("\n    ");
+                r.push(&i.name).text_color(theme::TYPE_COLOR);
+                r.push(": ");
+                format_generic_bound(bounds, r);
+                r.push(",");
+            }
+            _ => {}
+        }
+    }
+    for i in wheres {
+        match i {
+            WherePredicate::BoundPredicate { ty, bounds } => {
+                r.push("\n    ");
+                format_ty(ty, false, r);
+                r.push(": ");
+                format_generic_bound(bounds, r);
+                r.push(",");
+            }
+            WherePredicate::RegionPredicate { lifetime, bounds } => {}
+            WherePredicate::EqPredicate { lhs, rhs } => {}
+        }
+    }
+}
+pub fn format_fn(
+    name: &str,
+    header: &Vector<Qualifiers>,
+    gens: &Generics,
+    decl: &FnDecl,
+    r: &mut RichTextBuilder,
+) {
     r.push("pub fn ");
-    let (decl, gens) = match &f.inner {
-        ItemEnum::FunctionItem(f) => (&f.decl, &f.generics),
-        ItemEnum::MethodItem(m) => (&m.decl, &m.generics),
-        _ => unreachable!(),
-    };
+    for h in header {
+        match h {
+            Qualifiers::Const => {
+                r.push("const ");
+            }
+            Qualifiers::Unsafe => {
+                r.push("unsafe ");
+            }
+            Qualifiers::Async => {
+                r.push("async ");
+            }
+            _ => {}
+        };
+    }
 
-    r.push(f.name.as_ref().unwrap())
-        .text_color(theme::FUNCTION_COLOR);
+    r.push(name).text_color(theme::FUNCTION_COLOR);
 
     if !gens.params.iter().all(|x| x.name.starts_with("impl ")) {
         r.push("<");
         format_generics_def(
             gens.params.iter().filter(|x| !x.name.starts_with("impl ")),
+            false,
             r,
         );
         r.push(">");
@@ -234,60 +291,41 @@ pub fn format_fn(f: &Item, r: &mut RichTextBuilder) {
         } else {
             is_first = false;
             if name == "self" {
-                r.push(&ty.to_string().replace("Self", "self"));
-                continue;
+                match ty {
+                    Type::BorrowedRef {
+                        lifetime,
+                        mutable,
+                        type_,
+                    } => {
+                        r.push("&");
+                        if let Some(lf) = lifetime {
+                            r.push(lf);
+                            r.push(" ");
+                        }
+                        if *mutable {
+                            r.push("mut ");
+                        }
+                        r.push("self");
+                        continue;
+                    }
+                    Type::Generic(s) if s == "Self" => {
+                        r.push("self");
+                        continue;
+                    }
+                    _ => {}
+                }
+                // r.push(&ty.to_string().replace("Self", "self"));
             }
         }
 
         r.push(name);
         r.push(": ");
-        format_ty(ty, r);
+        format_ty(ty, false, r);
     }
     r.push(")");
     if let Some(ty) = &decl.output {
         r.push(" -> ");
-        format_ty(ty, r);
-    }
-}
-pub fn format_fn_multiline(f: &Item, r: &mut RichTextBuilder) {
-    r.push("pub fn ");
-    let (decl, gens) = match &f.inner {
-        ItemEnum::FunctionItem(f) => (&f.decl, &f.generics),
-        ItemEnum::MethodItem(m) => (&m.decl, &m.generics),
-        _ => unreachable!(),
-    };
-
-    r.push(f.name.as_ref().unwrap())
-        .text_color(theme::FUNCTION_COLOR);
-
-    if !gens.params.iter().all(|x| x.name.starts_with("impl ")) {
-        r.push("<");
-        format_generics_def(
-            gens.params.iter().filter(|x| !x.name.starts_with("impl ")),
-            r,
-        );
-        r.push(">");
-    }
-
-    r.push("(");
-    if !decl.inputs.is_empty() {
-        r.push("\n");
-    }
-    for (name, ty) in &decl.inputs {
-        r.push("    ");
-        if name == "self" {
-            r.push(&ty.to_string().replace("Self", "self"));
-            continue;
-        }
-        r.push(name);
-        r.push(": ");
-        format_ty(ty, r);
-        r.push(",\n");
-    }
-    r.push(")");
-    if let Some(ty) = &decl.output {
-        r.push(" -> ");
-        format_ty(ty, r);
+        format_ty(ty, false, r);
     }
 }
 

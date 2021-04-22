@@ -335,12 +335,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "druid-enums"
+version = "0.1.0"
+source = "git+https://github.com/Finnerale/druid-enums#11a4660c9b491e5d34857010c82c795f1a78c0a7"
+dependencies = [
+ "heck",
+ "log",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "druid-rustdoc"
 version = "0.1.0"
 dependencies = [
  "druid",
+ "druid-enums",
  "druid-widget-nursery",
+ "druid_simple_table",
  "lazy_static",
+ "log",
+ "open",
  "pulldown-cmark",
  "rustdoc-types",
  "syntect",
@@ -391,6 +407,13 @@ dependencies = [
  "druid",
  "log",
  "tracing",
+]
+
+[[package]]
+name = "druid_simple_table"
+version = "0.1.0"
+dependencies = [
+ "druid",
 ]
 
 [[package]]
@@ -879,9 +902,9 @@ checksum = "dd25036021b0de88a0aff6b850051563c6516d0bf53f8638938edbb9de732736"
 
 [[package]]
 name = "js-sys"
-version = "0.3.50"
+version = "0.3.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d99f9e3e84b8f67f846ef5b4cbbc3b1c29f6c759fcbce6f01aa0e73d932a24c"
+checksum = "dc9f84f9b115ce7843d60706df1422a916680bfdfcbdb0447c5614ff9d7e4d78"
 dependencies = [
  "wasm-bindgen",
 ]
@@ -1062,6 +1085,16 @@ checksum = "ed063c96cf4c0f2e5d09324409d158b38a0a85a7b90fbd68c8cad75c495d5775"
 dependencies = [
  "cc",
  "pkg-config",
+]
+
+[[package]]
+name = "open"
+version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1711eb4b31ce4ad35b0f316d8dfba4fe5c7ad601c448446d84aae7a896627b20"
+dependencies = [
+ "which",
+ "winapi",
 ]
 
 [[package]]
@@ -2006,12 +2039,22 @@ checksum = "d9a543ae66aa233d14bb765ed9af4a33e81b8b58d1584cf1b47ff8cd0b9e4489"
 
 [[package]]
 name = "web-sys"
-version = "0.3.50"
+version = "0.3.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a905d57e488fec8861446d3393670fb50d27a262344013181c2cdf9fff5481be"
+checksum = "ec600b26223b2948cedfde2a0aa6756dcf1fef616f43d7b3097aaf53a6c4d92b"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "which"
+version = "4.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b55551e42cbdf2ce2bedd2203d0cc08dba002c27510f86dab6d0ce304cba3dfe"
+dependencies = [
+ "either",
+ "libc",
 ]
 
 [[package]]

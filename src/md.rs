@@ -1,34 +1,50 @@
-use std::{ops::Range, time::Instant};
-
+use druid::text::{AttributesAdder, RichTextBuilder};
+use druid::Selector;
 use druid::{
     text::{Attribute, AttributeSpans, RichText},
-    Color, FontFamily, FontStyle, FontWeight,
+    Color, FontStyle, FontWeight,
 };
 use pulldown_cmark::{Event as ParseEvent, Parser, Tag};
 use syntect::easy::HighlightLines;
-use syntect::highlighting::{Style, ThemeSet};
+use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
 
+use crate::delegate::OPEN_LINK;
 use crate::theme;
+const BLOCKQUOTE_COLOR: Color = Color::grey8(0x88);
+const LINK_COLOR: Color = Color::from_rgba32_u32(0x39AFD7FF);
 
 // Parse a markdown string and generate a `RichText` object with
 /// the appropriate attributes.
 pub fn markdown_to_text(text: &str) -> RichText {
     let mut current_pos = 0;
-    let mut buffer = String::new();
-    let mut attrs = AttributeSpans::new();
+    let mut builder = RichTextBuilder::new();
     let mut tag_stack = Vec::new();
+    let mut is_code = false;
 
     let parser = Parser::new(text);
     for event in parser {
         match event {
             ParseEvent::Start(tag) => {
+                if let Tag::CodeBlock(..) = tag {
+                    is_code = true;
+                } else if let Tag::Item = tag {
+                    builder.push("• ");
+                    current_pos += 2;
+                }
                 tag_stack.push((current_pos, tag));
             }
-            ParseEvent::Text(txt) => {
-                buffer.push_str(&txt);
-                buffer.push_str(" ");
+            ParseEvent::Text(mut txt) => {
+                if is_code {
+                    txt = txt
+                        .split_inclusive('\n')
+                        .filter(|l| !l.starts_with("# "))
+                        .collect::<String>()
+                        .into();
+                }
+                builder.push(&txt);
+                builder.push(" ");
                 current_pos += txt.len() + 1;
             }
             ParseEvent::End(end_tag) => {
@@ -37,51 +53,61 @@ pub fn markdown_to_text(text: &str) -> RichText {
                     .expect("parser does not return unbalanced tags");
                 assert_eq!(end_tag, tag, "mismatched tags?");
                 match tag {
-                    Tag::CodeBlock(_) => highlighting_code(&buffer, start_off, &mut attrs),
+                    Tag::CodeBlock(_) => {
+                        let (buffer, attrs) = builder.raw_parts();
+                        highlighting_code(buffer, start_off, attrs);
+                        is_code = false;
+                    }
                     _ => {}
                 }
-                add_attribute_for_tag(&tag, start_off..current_pos, &mut attrs);
-                if add_newline_after_tag(&tag) {
-                    buffer.push_str("\n\n");
-                    current_pos += 2;
+                add_attribute_for_tag(
+                    &tag,
+                    builder.add_attributes_for_range(start_off..current_pos),
+                );
+                for _ in 0..newlines_after_tag(&tag) {
+                    builder.push("\n");
+                    current_pos += 1;
                 }
             }
             ParseEvent::Code(txt) => {
-                buffer.push_str(&txt);
-                let range = current_pos..current_pos + txt.len();
-                attrs.add(range, Attribute::font_family(theme::CODE_FONT));
+                builder
+                    .push(&txt)
+                    .font_descriptor(theme::CODE_FONT)
+                    .text_color(theme::CODE_COLOR);
                 current_pos += txt.len();
             }
             ParseEvent::Html(txt) => {
-                // buffer.push_str(&txt);
-                // current_pos += txt.len();
-                // let range = current_pos..current_pos + txt.len();
-                // attrs.add(range.clone(), Attribute::font_family(FontFamily::MONOSPACE));
-                // attrs.add(range, Attribute::text_color(BLOCKQUOTE_COLOR));
+                builder
+                    .push(&txt)
+                    .font_descriptor(theme::CODE_FONT)
+                    .text_color(BLOCKQUOTE_COLOR);
+                current_pos += txt.len();
             }
             ParseEvent::HardBreak => {
-                // buffer.push_str("\n\n");
-                // current_pos += 1;
+                builder.push("\n\n");
+                current_pos += 2;
             }
-
-            ParseEvent::FootnoteReference(_) => {}
-            ParseEvent::SoftBreak => {}
-            ParseEvent::Rule => {}
-            ParseEvent::TaskListMarker(_) => {}
+            _ => (),
         }
     }
-    let buffer = buffer.trim_end();
-    RichText::new_with_attributes(buffer.into(), attrs)
+    let (string, _) = builder.raw_parts();
+    if string.ends_with("\n\n") {
+        string.truncate(string.len() - 2);
+    }
+    builder.build()
 }
 
-fn add_newline_after_tag(tag: &Tag) -> bool {
-    !matches!(
-        tag,
-        Tag::Emphasis | Tag::Strong | Tag::Strikethrough | Tag::Link(..)
-    )
+fn newlines_after_tag(tag: &Tag) -> usize {
+    match tag {
+        Tag::Emphasis | Tag::Strong | Tag::Strikethrough | Tag::Link(..) => 0,
+        Tag::Item => 1,
+        Tag::List(..) => 1,
+        Tag::Paragraph => 2,
+        _ => 2,
+    }
 }
 
-fn add_attribute_for_tag(tag: &Tag, range: Range<usize>, attrs: &mut AttributeSpans) {
+fn add_attribute_for_tag(tag: &Tag, mut attrs: AttributesAdder) {
     match tag {
         Tag::Heading(lvl) => {
             let font_size = match lvl {
@@ -90,37 +116,41 @@ fn add_attribute_for_tag(tag: &Tag, range: Range<usize>, attrs: &mut AttributeSp
                 3 => 17.0,
                 _ => 16.0,
             };
-            attrs.add(range.clone(), Attribute::size(font_size));
-            attrs.add(range, Attribute::weight(FontWeight::MEDIUM));
+            attrs.size(font_size).weight(FontWeight::BOLD);
         }
         Tag::BlockQuote => {
-            // attrs.add(range.clone(), Attribute::style(FontStyle::Italic));
-            // attrs.add(range, Attribute::text_color(BLOCKQUOTE_COLOR));
+            attrs.style(FontStyle::Italic).text_color(BLOCKQUOTE_COLOR);
         }
         Tag::CodeBlock(_) => {
-            attrs.add(range, Attribute::font_descriptor(theme::CODE_FONT));
+            attrs.font_descriptor(theme::CODE_FONT);
         }
-        Tag::Emphasis => attrs.add(range, Attribute::style(FontStyle::Italic)),
-        Tag::Strong => attrs.add(range, Attribute::weight(FontWeight::BOLD)),
-        Tag::Link(..) => {
-            attrs.add(range.clone(), Attribute::underline(true));
-            // attrs.add(range, Attribute::text_color(LINK_COLOR));
+        Tag::Emphasis => {
+            attrs.style(FontStyle::Italic);
+        }
+        Tag::Strong => {
+            attrs.weight(FontWeight::BOLD);
+        }
+        Tag::Link(_link_ty, target, _title) => {
+            attrs
+                .underline(true)
+                .text_color(LINK_COLOR)
+                .link(OPEN_LINK.with(target.to_string()));
         }
         // ignore other tags for now
-        _ => (),
+        _ => {}
     }
 }
 
 lazy_static::lazy_static! {
     pub static ref PS: SyntaxSet = SyntaxSet::load_defaults_newlines();
-    pub static ref TS: ThemeSet = ThemeSet::load_defaults();
+    pub static ref TS: ThemeSet = ThemeSet::load_from_folder("themes").unwrap();
 }
 
 fn highlighting_code(txt: &str, range: usize, attrs: &mut AttributeSpans) {
     let txt = &txt[range..];
 
     let syntax = PS.find_syntax_by_extension("rs").unwrap();
-    let mut h = HighlightLines::new(syntax, &TS.themes["Solarized (dark)"]);
+    let mut h = HighlightLines::new(syntax, &TS.themes["Ultimate Dark"]);
     let mut current_pos = range;
     for line in LinesWithEndings::from(txt) {
         // LinesWithEndings enables use of newlines mode
