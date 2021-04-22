@@ -7,20 +7,16 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-druid = { path = "../druid/druid", features = ["im", "image"] }
+druid = { git = "https://github.com/linebender/druid", features = ["im", "image"] }
 druid-widget-nursery = { git = "https://github.com/linebender/druid-widget-nursery" }
 pulldown-cmark = "0.8.0"
 rustdoc-types = { path = "rustdoc-types" }
 syntect = "4.5.0"
 lazy_static = "1.4"
 open = "1.7.0"
-druid_simple_table = { path = "../druid_simple_table/" }
+druid_simple_table = { git = "https://github.com/Maan2003/druid-simple-table", branch = "rustdoc-dev2" }
 druid-enums = { git = "https://github.com/Finnerale/druid-enums" }
 log = "0.4.14"
 
-# [patch.crates-io]
-# piet = { git = "https://github.com/ForLoveOfCats/piet", branch = "PangoWrapping" }
-# piet-common = { git = "https://github.com/ForLoveOfCats/piet", branch = "PangoWrapping" }
-
 [patch.'https://github.com/linebender/druid']
-druid = { path = "../druid/druid" }
+druid = { git = "https://github.com/Maan2003/druid", branch = "rustdoc-dev2" }

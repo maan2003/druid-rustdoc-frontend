@@ -307,6 +307,7 @@ checksum = "212d0f5754cb6769937f4501cc0e67f4f4483c8d2c3e1e922ee9edbe4ab4c7c0"
 [[package]]
 name = "druid"
 version = "0.7.0"
+source = "git+https://github.com/Maan2003/druid?branch=rustdoc-dev2#689ee6f228df34af6211e333f7b089dbcf36e568"
 dependencies = [
  "console_error_panic_hook",
  "druid-derive",
@@ -328,6 +329,7 @@ dependencies = [
 [[package]]
 name = "druid-derive"
 version = "0.4.0"
+source = "git+https://github.com/Maan2003/druid?branch=rustdoc-dev2#689ee6f228df34af6211e333f7b089dbcf36e568"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -365,6 +367,7 @@ dependencies = [
 [[package]]
 name = "druid-shell"
 version = "0.7.0"
+source = "git+https://github.com/Maan2003/druid?branch=rustdoc-dev2#689ee6f228df34af6211e333f7b089dbcf36e568"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -412,6 +415,7 @@ dependencies = [
 [[package]]
 name = "druid_simple_table"
 version = "0.1.0"
+source = "git+https://github.com/Maan2003/druid-simple-table?branch=rustdoc-dev2#d06e068620c1e2912b8fcfcdd2bf71dc84e5d7d3"
 dependencies = [
  "druid",
 ]
