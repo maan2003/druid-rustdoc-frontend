@@ -474,4 +474,5 @@ fn fn_() -> impl Widget<data::Fn> {
         .with_child(docs)
         .with_default_spacer()
         .padding(10.)
+        .scroll()
 }
