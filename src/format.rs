@@ -241,6 +241,9 @@ pub fn format_wheres<'a>(
 ) {
     r.push("where");
     for i in others {
+        if i.name.starts_with("impl ") {
+            continue;
+        }
         match &i.kind {
             GenericParamDefKind::Type { bounds, default: _ } if !bounds.is_empty() => {
                 r.push("\n    ");

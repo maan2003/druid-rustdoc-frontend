@@ -454,8 +454,9 @@ fn fn_() -> impl Widget<data::Fn> {
         })
         .empty_if(|t, _| {
             t.generics.where_predicates.is_empty()
-                && !t.generics.params.iter().any(|i| {
-                    matches!( &i.kind,
+                && !t.generics.params.iter().any(|f| {
+                    !f.name.starts_with("impl ")
+                        && matches!( &f.kind,
                                GenericParamDefKind::Type { bounds, .. } if !bounds.is_empty())
                 })
         });
