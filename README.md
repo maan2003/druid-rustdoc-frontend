@@ -1,6 +1,6 @@
-to run 
+to run
 ```shell
-cargo run -- piet
+cargo run -- piet.json
 ```
 
-Note: you need "Fira Code" Font installed or change it in src/theme.rs:32
+Note: you need "Source Code Pro" Font installed or change it in src/theme.rs:37
