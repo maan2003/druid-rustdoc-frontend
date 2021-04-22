@@ -12,11 +12,14 @@ pub enum Screen {
     Struct(Struct),
     #[matcher(builder_name = enum_)]
     Enum(Enum),
+    #[matcher(builder_name = fn_)]
+    Fn(Fn),
 }
 
 #[derive(Data, Clone, Debug)]
 pub struct Item {
     pub name: String,
+    pub parents: Vector<String>,
     pub id: rustdoc_types::Id,
     pub short_doc: Option<String>,
     pub doc: Option<RichText>,

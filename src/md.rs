@@ -1,5 +1,5 @@
 use druid::text::{AttributesAdder, RichTextBuilder};
-use druid::Selector;
+
 use druid::{
     text::{Attribute, AttributeSpans, RichText},
     Color, FontStyle, FontWeight,
@@ -18,7 +18,6 @@ const LINK_COLOR: Color = Color::from_rgba32_u32(0x39AFD7FF);
 // Parse a markdown string and generate a `RichText` object with
 /// the appropriate attributes.
 pub fn markdown_to_text(text: &str) -> RichText {
-    let mut current_pos = 0;
     let mut builder = RichTextBuilder::new();
     let mut tag_stack = Vec::new();
     let mut is_code = false;
@@ -31,9 +30,8 @@ pub fn markdown_to_text(text: &str) -> RichText {
                     is_code = true;
                 } else if let Tag::Item = tag {
                     builder.push("• ");
-                    current_pos += 2;
                 }
-                tag_stack.push((current_pos, tag));
+                tag_stack.push((builder.len(), tag));
             }
             ParseEvent::Text(mut txt) => {
                 if is_code {
@@ -45,7 +43,6 @@ pub fn markdown_to_text(text: &str) -> RichText {
                 }
                 builder.push(&txt);
                 builder.push(" ");
-                current_pos += txt.len() + 1;
             }
             ParseEvent::End(end_tag) => {
                 let (start_off, tag) = tag_stack
@@ -62,11 +59,10 @@ pub fn markdown_to_text(text: &str) -> RichText {
                 }
                 add_attribute_for_tag(
                     &tag,
-                    builder.add_attributes_for_range(start_off..current_pos),
+                    builder.add_attributes_for_range(start_off..builder.len()),
                 );
                 for _ in 0..newlines_after_tag(&tag) {
                     builder.push("\n");
-                    current_pos += 1;
                 }
             }
             ParseEvent::Code(txt) => {
@@ -74,20 +70,21 @@ pub fn markdown_to_text(text: &str) -> RichText {
                     .push(&txt)
                     .font_descriptor(theme::CODE_FONT)
                     .text_color(theme::CODE_COLOR);
-                current_pos += txt.len();
             }
             ParseEvent::Html(txt) => {
                 builder
                     .push(&txt)
                     .font_descriptor(theme::CODE_FONT)
                     .text_color(BLOCKQUOTE_COLOR);
-                current_pos += txt.len();
             }
             ParseEvent::HardBreak => {
                 builder.push("\n\n");
-                current_pos += 2;
             }
-            _ => (),
+
+            ParseEvent::FootnoteReference(_) => {}
+            ParseEvent::SoftBreak => {}
+            ParseEvent::Rule => {}
+            ParseEvent::TaskListMarker(_) => {}
         }
     }
     let (string, _) = builder.raw_parts();

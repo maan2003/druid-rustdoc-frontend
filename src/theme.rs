@@ -4,7 +4,7 @@ use druid::{theme::*, Key};
 pub const MOD_COLOR: Key<Color> = Key::new("druid-rustdoc.mod-color");
 pub const STRUCT_COLOR: Key<Color> = Key::new("druid-rustdoc.struct-color");
 pub const ENUM_COLOR: Key<Color> = Key::new("druid-rustdoc.enum-color");
-pub const FUNCTION_COLOR: Key<Color> = Key::new("druid-rustdoc.function-color");
+pub const FN_COLOR: Key<Color> = Key::new("druid-rustdoc.function-color");
 pub const KEYWORD_COLOR: Key<Color> = Key::new("druid-rustdoc.keyword-color");
 pub const TRAIT_COLOR: Key<Color> = Key::new("druid-rustdoc.trait-color");
 pub const CONST_COLOR: Key<Color> = Key::new("druid-rustdoc.const-color");
@@ -20,7 +20,7 @@ pub fn configure_env(env: &mut Env) {
     env.set(MOD_COLOR, Color::Rgba32(0xacccf9ff));
     env.set(STRUCT_COLOR, Color::Rgba32(0xffa0a5ff));
     env.set(ENUM_COLOR, Color::Rgba32(0x99e0c9ff));
-    env.set(FUNCTION_COLOR, Color::Rgba32(0xfdd687ff));
+    env.set(FN_COLOR, Color::Rgba32(0xfdd687ff));
     env.set(CONST_COLOR, Color::Rgba32(0x6380a0ff));
     env.set(KEYWORD_COLOR, Color::Rgba32(0xff7733ff));
     env.set(TYPE_COLOR, Color::Rgba32(0xcfbcf5ff));
@@ -34,7 +34,7 @@ pub fn configure_env(env: &mut Env) {
     env.set(WIDGET_PADDING_VERTICAL, 10.);
     env.set(
         CODE_FONT,
-        FontDescriptor::new(FontFamily::new_unchecked("Victor Mono")).with_size(16.0),
+        FontDescriptor::new(FontFamily::new_unchecked("Source Code Pro")).with_size(16.0),
     );
     env.set(
         UI_FONT,

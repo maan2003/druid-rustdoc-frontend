@@ -2,7 +2,7 @@ use druid::im::Vector;
 use druid::text::RichTextBuilder;
 use rustdoc_types::{
     FnDecl, GenericArg, GenericArgs, GenericBound, GenericParamDef, GenericParamDefKind, Generics,
-    Qualifiers, TraitBoundModifier, Type, WherePredicate,
+    Qualifiers, TraitBoundModifier, Type, TypeBindingKind, WherePredicate,
 };
 
 use crate::theme;
@@ -186,7 +186,9 @@ pub fn format_generic_bound<'a>(
 
 pub fn format_generic_args(g: &GenericArgs, r: &mut RichTextBuilder) {
     match g {
-        GenericArgs::AngleBracketed { args, bindings } if !args.is_empty() => {
+        GenericArgs::AngleBracketed { args, bindings }
+            if !args.is_empty() || !bindings.is_empty() =>
+        {
             r.push("<");
             format_seperated(args.iter(), ", ", r, |a, r| match a {
                 GenericArg::Lifetime(lf) => {
@@ -199,6 +201,22 @@ pub fn format_generic_args(g: &GenericArgs, r: &mut RichTextBuilder) {
                     r.push("{");
                     r.push(c.value.as_ref().unwrap());
                     r.push("}");
+                }
+            });
+            if !args.is_empty() && !bindings.is_empty() {
+                r.push(", ");
+            }
+            format_seperated(bindings.iter(), ", ", r, |a, r| {
+                r.push(&a.name).text_color(theme::TYPE_COLOR);
+                match &a.binding {
+                    TypeBindingKind::Equality(ty) => {
+                        r.push(" = ");
+                        format_ty(ty, false, r);
+                    }
+                    TypeBindingKind::Constraint(c) => {
+                        r.push(": ");
+                        format_generic_bound(c, r);
+                    }
                 }
             });
             r.push(">");
@@ -243,7 +261,13 @@ pub fn format_wheres<'a>(
                 format_generic_bound(bounds, r);
                 r.push(",");
             }
-            WherePredicate::RegionPredicate { lifetime, bounds } => {}
+            WherePredicate::RegionPredicate { lifetime, bounds } => {
+                r.push("\n    ");
+                r.push(lifetime);
+                r.push(": ");
+                format_generic_bound(bounds, r);
+                r.push(", ");
+            }
             WherePredicate::EqPredicate { lhs, rhs } => {}
         }
     }
@@ -271,7 +295,7 @@ pub fn format_fn(
         };
     }
 
-    r.push(name).text_color(theme::FUNCTION_COLOR);
+    r.push(name).text_color(theme::FN_COLOR);
 
     if !gens.params.iter().all(|x| x.name.starts_with("impl ")) {
         r.push("<");
