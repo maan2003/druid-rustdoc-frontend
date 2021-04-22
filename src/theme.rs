@@ -1,5 +1,5 @@
-use druid::{piet::Text, Color, Env, FontDescriptor, FontFamily};
-use druid::{theme::*, Key};
+pub use druid::theme::*;
+use druid::{Color, Env, FontDescriptor, FontFamily, Key};
 
 pub const MOD_COLOR: Key<Color> = Key::new("druid-rustdoc.mod-color");
 pub const STRUCT_COLOR: Key<Color> = Key::new("druid-rustdoc.struct-color");

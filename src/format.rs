@@ -13,7 +13,7 @@ pub fn format_ty(ty: &Type, hint_trait: bool, r: &mut RichTextBuilder) {
             name,
             id,
             args,
-            param_names,
+            param_names: _,
         } => {
             let name = name.rsplit("::").next().unwrap();
             r.push(name)
@@ -242,7 +242,7 @@ pub fn format_wheres<'a>(
     r.push("where");
     for i in others {
         match &i.kind {
-            GenericParamDefKind::Type { bounds, default } if !bounds.is_empty() => {
+            GenericParamDefKind::Type { bounds, default: _ } if !bounds.is_empty() => {
                 r.push("\n    ");
                 r.push(&i.name).text_color(theme::TYPE_COLOR);
                 r.push(": ");
@@ -268,7 +268,7 @@ pub fn format_wheres<'a>(
                 format_generic_bound(bounds, r);
                 r.push(", ");
             }
-            WherePredicate::EqPredicate { lhs, rhs } => {}
+            WherePredicate::EqPredicate { lhs: _, rhs: _ } => {}
         }
     }
 }
@@ -319,7 +319,7 @@ pub fn format_fn(
                     Type::BorrowedRef {
                         lifetime,
                         mutable,
-                        type_,
+                        type_: _,
                     } => {
                         r.push("&");
                         if let Some(lf) = lifetime {
@@ -338,7 +338,6 @@ pub fn format_fn(
                     }
                     _ => {}
                 }
-                // r.push(&ty.to_string().replace("Self", "self"));
             }
         }
 

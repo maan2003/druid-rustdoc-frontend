@@ -1,22 +1,14 @@
 use druid::im::Vector;
-use druid::widget::ViewSwitcher;
-use druid::widget::{List, Maybe};
-use druid::{lens, Data};
-use druid::{
-    text::RichTextBuilder,
-    widget::{CrossAxisAlignment, Flex, Label, RawLabel},
-    Color, Key, Widget, WidgetExt,
-};
+use druid::text::RichTextBuilder;
+use druid::widget::{CrossAxisAlignment, Flex, Label, List, RawLabel};
+use druid::{lens, Color, Data, Key, Widget, WidgetExt};
 use druid_simple_table::Table;
 use rustdoc_types::GenericParamDefKind;
 
 use crate::data;
-use crate::format::format_seperated;
+use crate::format::{format_fn, format_generics_def, format_seperated, format_ty, format_wheres};
 use crate::widgets::*;
-use crate::{
-    format::{format_fn, format_generics_def, format_ty, format_wheres},
-    theme, GOTO_ITEM,
-};
+use crate::{theme, GOTO_ITEM};
 
 pub fn ui_builder() -> impl Widget<data::Screen> {
     data::Screen::matcher()
@@ -437,11 +429,6 @@ fn fn_() -> impl Widget<data::Fn> {
             }
 
             r.push("(\n");
-            // r.build()
-            // });
-
-            // let params = RawLabel::code().computed(|f: &data::Fn| {
-            //     let mut r = RichTextBuilder::new();
             for (name, ty) in &f.decl.inputs {
                 r.push("    ");
                 r.push(&name);

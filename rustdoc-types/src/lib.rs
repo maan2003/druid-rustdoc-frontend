@@ -1,6 +1,7 @@
 //! This is my crate.
 
-use std::{fmt::Display, path::PathBuf, rc::Rc, sync::Arc};
+use std::rc::Rc;
+use std::path::PathBuf;
 
 use druid::{Data, Lens};
 use im::{HashMap, Vector};
@@ -99,8 +100,8 @@ pub struct Deprecation {
     pub note: Option<String>,
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Data, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum Visibility {
     Public,
     /// For the most part items are private by default. The exceptions are associated items of
@@ -115,8 +116,8 @@ pub enum Visibility {
     },
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Data, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum GenericArgs {
     /// <'a, 32, B: Copy, C = u32>
     AngleBracketed {
@@ -130,8 +131,8 @@ pub enum GenericArgs {
     },
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Data, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum GenericArg {
     Lifetime(String),
     Type(Type),
@@ -153,8 +154,8 @@ pub struct TypeBinding {
     pub binding: TypeBindingKind,
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Data, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum TypeBindingKind {
     Equality(Type),
     Constraint(Vector<GenericBound>),
@@ -194,8 +195,8 @@ pub enum ItemKind {
     Keyword,
 }
 
-#[serde(untagged)]
 #[derive(Clone, Debug, Data, Serialize, Deserialize, PartialEq)]
+#[serde(untagged)]
 #[serde(rename_all = "snake_case")]
 pub enum ItemEnum {
     ModuleItem(Module),
@@ -309,17 +310,17 @@ pub struct Enum {
     pub impls: Vector<Id>,
 }
 
+#[derive(Clone, Debug, Data, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "variant_kind", content = "variant_inner")]
-#[derive(Clone, Debug, Data, Serialize, Deserialize, PartialEq)]
 pub enum Variant {
     Plain,
     Tuple(Vector<Type>),
     Struct(Vector<Id>),
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Data, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum StructType {
     Plain,
     Tuple,
@@ -366,8 +367,8 @@ pub struct GenericParamDef {
 }
 
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Data, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum GenericParamDefKind {
     Lifetime,
     Type {
@@ -377,8 +378,8 @@ pub enum GenericParamDefKind {
     Const(Type),
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Data, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum WherePredicate {
     BoundPredicate {
         ty: Type,
@@ -394,8 +395,8 @@ pub enum WherePredicate {
     },
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Data, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum GenericBound {
     TraitBound {
         #[serde(rename = "trait")]
@@ -407,17 +408,17 @@ pub enum GenericBound {
     Outlives(String),
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Data, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum TraitBoundModifier {
     None,
     Maybe,
     MaybeConst,
 }
 
+#[derive(Clone, Debug, Data, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "kind", content = "inner")]
-#[derive(Clone, Debug, Data, Serialize, Deserialize, PartialEq)]
 pub enum Type {
     /// Structs, enums, and traits
     ResolvedPath {
@@ -517,8 +518,8 @@ pub struct Impl {
     pub blanket_impl: Option<Type>,
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Data, Lens, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub struct Import {
     /// The full path being imported.
     pub span: String,
@@ -537,8 +538,8 @@ pub struct ProcMacro {
     pub helpers: Vector<String>,
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Data, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum MacroKind {
     /// A bang macro `foo!()`.
     Bang,

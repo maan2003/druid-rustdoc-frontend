@@ -1,8 +1,7 @@
 use std::env;
-use std::{fs, time::Instant};
 
-use druid::{im::Vector, AppDelegate, AppLauncher, Data, Selector, Target, WindowDesc};
-use rustdoc_types::{Crate, Id};
+use druid::{AppLauncher, Selector, WindowDesc};
+use rustdoc_types::Id;
 use theme::configure_env;
 mod data;
 mod delegate;
@@ -13,7 +12,6 @@ mod view;
 mod widgets;
 
 const GOTO_ITEM: Selector<Id> = Selector::new("druid-rustdoc.goto-item");
-const GO_BACK: Selector<()> = Selector::new("druid-rustdoc.go-back");
 
 fn main() {
     let json_path = env::args().nth(1).unwrap();
