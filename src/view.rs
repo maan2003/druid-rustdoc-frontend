@@ -475,4 +475,5 @@ fn fn_() -> impl Widget<data::Fn> {
         .with_default_spacer()
         .padding(10.)
         .scroll()
+        .vertical()
 }
