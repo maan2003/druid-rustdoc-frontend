@@ -172,13 +172,21 @@ impl Delegate {
             ItemEnum::ImplItem(i) => {
                 let item = item_to_data(item, s);
                 let mut fns = Vector::new();
+                let mut consts = Vector::new();
+                let mut tys = Vector::new();
 
                 for id in &i.items {
                     let item = &self.krate.index[id];
                     let s = self.krate.paths.get(id);
                     match &item.inner {
                         ItemEnum::FunctionItem(f) => fns.push_back(item_to_fn(item, s, f)),
-                        _ => {},
+                        ItemEnum::AssocConstItem { type_, default } => {
+                            consts.push_back(item_to_const(item, s, type_, default))
+                        }
+                        ItemEnum::TypedefItem(t) => {
+                            tys.push_back(item_to_typedef(item, s, t));
+                        }
+                        _ => {}
                     }
                 }
 
@@ -189,7 +197,9 @@ impl Delegate {
                     provided_trait_methods: i.provided_trait_methods.clone(),
                     trait_: i.trait_.clone(),
                     for_: i.for_.clone(),
+                    consts,
                     fns,
+                    tys,
                     negative: i.negative,
                     synthetic: i.synthetic,
                     blanket_impl: i.blanket_impl.clone(),
@@ -197,6 +207,31 @@ impl Delegate {
             }
             _ => unreachable!(),
         }
+    }
+}
+
+fn item_to_typedef(
+    item: &rdoc::Item,
+    s: Option<&rdoc::ItemSummary>,
+    t: &rdoc::Typedef,
+) -> data::TypeDef {
+    data::TypeDef {
+        item: item_to_data(item, s),
+        ty: t.type_.clone(),
+        generics: t.generics.clone(),
+    }
+}
+
+fn item_to_const(
+    item: &rdoc::Item,
+    s: Option<&rdoc::ItemSummary>,
+    type_: &rdoc::Type,
+    default: &Option<String>,
+) -> data::Const {
+    data::Const {
+        item: item_to_data(item, s),
+        ty: type_.clone(),
+        default: default.clone(),
     }
 }
 

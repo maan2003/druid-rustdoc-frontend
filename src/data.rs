@@ -82,6 +82,8 @@ pub struct Impl {
     pub provided_trait_methods: Vector<String>,
     pub trait_: Option<Type>,
     pub for_: Type,
+    pub tys: Vector<TypeDef>,
+    pub consts: Vector<Const>,
     pub fns: Vector<Fn>,
     pub negative: bool,
     pub synthetic: bool,
@@ -96,4 +98,18 @@ pub struct Fn {
     pub generics: Generics,
     pub header: Vector<Qualifiers>,
     pub abi: String,
+}
+
+#[derive(Data, Clone, Debug)]
+pub struct Const {
+    pub item: Item,
+    pub ty: Type,
+    pub default: Option<String>,
+}
+
+#[derive(Data, Clone, Debug)]
+pub struct TypeDef {
+    pub item: Item,
+    pub ty: Type,
+    pub generics: Generics,
 }

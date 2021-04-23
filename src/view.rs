@@ -374,9 +374,23 @@ fn impl_() -> impl Widget<data::Impl> {
         .empty_if(|d: &Vector<_>, _| d.is_empty())
         .lens(lens!(data::Impl, fns));
 
+    let consts = List::new(impl_const)
+        .with_spacing(10.)
+        .padding((0., 10., 0., 0.))
+        .empty_if(|d: &Vector<_>, _| d.is_empty())
+        .lens(lens!(data::Impl, consts));
+
+    let tys = List::new(impl_type_def)
+        .with_spacing(10.)
+        .padding((0., 10., 0., 0.))
+        .empty_if(|d: &Vector<_>, _| d.is_empty())
+        .lens(lens!(data::Impl, tys));
+
     Flex::column()
         .cross_axis_alignment(CrossAxisAlignment::Start)
         .with_child(head)
+        .with_child(tys)
+        .with_child(consts)
         .with_child(fns)
 }
 
@@ -392,6 +406,47 @@ fn impl_fn() -> impl Widget<data::Fn> {
         .with_child(RawLabel::code().computed(|f: &data::Fn| {
             let mut r = RichTextBuilder::new();
             format_fn(&f.item.name, &f.header, &f.generics, &f.decl, &mut r);
+            r.build()
+        }))
+        .with_child(docs)
+        .padding((20., 0., 0., 0.))
+}
+
+fn impl_const() -> impl Widget<data::Const> {
+    let docs = RawLabel::new()
+        .wrap_text()
+        .padding((10., 10., 0., 10.))
+        .or_empty()
+        .lens(lens!(data::Const, item.doc));
+
+    Flex::column()
+        .cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(RawLabel::code().computed(|f: &data::Const| {
+            let mut r = RichTextBuilder::new();
+            r.push("const ");
+            r.push(&f.item.name).text_color(theme::CONST_COLOR);
+            r.push(": ");
+            format_ty(&f.ty, false, &mut r);
+            r.build()
+        }))
+        .with_child(docs)
+        .padding((20., 0., 0., 0.))
+}
+fn impl_type_def() -> impl Widget<data::TypeDef> {
+    let docs = RawLabel::new()
+        .wrap_text()
+        .padding((10., 10., 0., 10.))
+        .or_empty()
+        .lens(lens!(data::TypeDef, item.doc));
+
+    Flex::column()
+        .cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(RawLabel::code().computed(|t: &data::TypeDef| {
+            let mut r = RichTextBuilder::new();
+            r.push("type ");
+            r.push(&t.item.name).text_color(theme::TYPE_COLOR);
+            r.push(" = ");
+            format_ty(&t.ty, false, &mut r);
             r.build()
         }))
         .with_child(docs)
