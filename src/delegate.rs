@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-
+use druid::im::Vector;
 use druid::{AppDelegate, Selector};
 use rdoc::{ItemEnum, ItemKind};
 use rustdoc_types as rdoc;
@@ -171,6 +171,17 @@ impl Delegate {
         match &item.inner {
             ItemEnum::ImplItem(i) => {
                 let item = item_to_data(item, s);
+                let mut fns = Vector::new();
+
+                for id in &i.items {
+                    let item = &self.krate.index[id];
+                    let s = self.krate.paths.get(id);
+                    match &item.inner {
+                        ItemEnum::FunctionItem(f) => fns.push_back(item_to_fn(item, s, f)),
+                        _ => {},
+                    }
+                }
+
                 data::Impl {
                     item,
                     is_unsafe: i.is_unsafe,
@@ -178,20 +189,7 @@ impl Delegate {
                     provided_trait_methods: i.provided_trait_methods.clone(),
                     trait_: i.trait_.clone(),
                     for_: i.for_.clone(),
-                    items: i
-                        .items
-                        .iter()
-                        .filter_map(|id| {
-                            let item = &self.krate.index[id];
-                            let s = self.krate.paths.get(id);
-                            match &item.inner {
-                                ItemEnum::FunctionItem(f) => {
-                                    Some(data::ImplItem::Fn(item_to_fn(item, s, f)))
-                                }
-                                _ => None,
-                            }
-                        })
-                        .collect(),
+                    fns,
                     negative: i.negative,
                     synthetic: i.synthetic,
                     blanket_impl: i.blanket_impl.clone(),
@@ -217,7 +215,9 @@ fn item_to_data(item: &rdoc::Item, s: Option<&rdoc::ItemSummary>) -> data::Item 
     data::Item {
         name: item.name.clone().unwrap_or("_".into()),
         id: item.id.clone(),
-        parents: s.map(|s| s.path.iter().take(s.path.len() - 1).cloned().collect()).unwrap_or_default(),
+        parents: s
+            .map(|s| s.path.iter().take(s.path.len() - 1).cloned().collect())
+            .unwrap_or_default(),
         short_doc: item
             .docs
             .as_deref()

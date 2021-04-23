@@ -368,16 +368,16 @@ fn impl_() -> impl Widget<data::Impl> {
         }
         r.build()
     });
-    let items = List::new(|| data::ImplItem::matcher().fn_(impl_fn()))
+    let fns = List::new(impl_fn)
         .with_spacing(10.)
         .padding((0., 10., 0., 0.))
         .empty_if(|d: &Vector<_>, _| d.is_empty())
-        .lens(lens!(data::Impl, items));
+        .lens(lens!(data::Impl, fns));
 
     Flex::column()
         .cross_axis_alignment(CrossAxisAlignment::Start)
         .with_child(head)
-        .with_child(items)
+        .with_child(fns)
 }
 
 fn impl_fn() -> impl Widget<data::Fn> {

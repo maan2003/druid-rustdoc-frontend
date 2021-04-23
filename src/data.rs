@@ -82,17 +82,12 @@ pub struct Impl {
     pub provided_trait_methods: Vector<String>,
     pub trait_: Option<Type>,
     pub for_: Type,
-    pub items: Vector<ImplItem>,
+    pub fns: Vector<Fn>,
     pub negative: bool,
     pub synthetic: bool,
     pub blanket_impl: Option<Type>,
 }
 
-#[derive(Data, Clone, Debug, Matcher)]
-pub enum ImplItem {
-    #[matcher(builder_name = fn_)]
-    Fn(Fn),
-}
 
 #[derive(Data, Clone, Debug)]
 pub struct Fn {
